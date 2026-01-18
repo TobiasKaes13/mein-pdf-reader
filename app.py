@@ -1,109 +1,90 @@
 import streamlit as st
 import google.generativeai as genai
 
-st.set_page_config(page_title="KI PDF Reader", layout="centered")
-st.title("📄 PDF Vorlese-Assistent")
+# 1. Seite konfigurieren
+st.set_page_config(page_title="KI PDF Reader", page_icon="📄", layout="centered")
 
-api_key = st.sidebar.text_input("Gemini API Key", type="password")
+st.title("📄 Dein KI PDF-Vorleser")
+st.markdown("Lade ein PDF hoch und die KI fasst es zusammen und liest es dir vor.")
 
-if api_key:
-    try:
-        genai.configure(api_key=api_key)
-        
-        # SCHRITT 1: Verfügbare Modelle automatisch finden
-        available_models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
-        
-        # Wir suchen nach flash oder pro, ansonsten nehmen wir das erste verfügbare
-        target_model = ""
-        for m in available_models:
-            if "gemini-1.5-flash" in m:
-                target_model = m
-                break
-        if not target_model:
-            target_model = available_models[0]
+# 2. API Key aus den Streamlit Secrets laden
+if "GEMINI_API_KEY" in st.secrets:
+    genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
+else:
+    st.error("⚠️ API Key nicht gefunden! Bitte trage den 'GEMINI_API_KEY' in den Streamlit Secrets ein.")
+    st.stop()
+
+# 3. Modell finden (Sicherheits-Check für die Region)
+try:
+    available_models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
+    target_model = next((m for m in available_models if "1.5-flash" in m), available_models[0])
+    model = genai.GenerativeModel(target_model)
+except Exception as e:
+    st.error(f"Fehler beim Laden des KI-Modells: {e}")
+    st.stop()
+
+# 4. Datei-Upload
+uploaded_file = st.file_uploader("Wähle eine PDF-Datei aus", type=["pdf"])
+
+if uploaded_file:
+    with st.spinner("KI liest das Dokument..."):
+        try:
+            # PDF Daten vorbereiten
+            pdf_bytes = uploaded_file.getvalue()
             
-        st.sidebar.info(f"Genutztes Modell: {target_model}")
-        model = genai.GenerativeModel(target_model)
-        
-        uploaded_file = st.file_uploader("Lade ein PDF hoch", type=["pdf"])
+            prompt = "Fasse dieses Dokument kurz und knackig auf Deutsch zusammen, ideal zum Vorlesen."
+            
+            # KI Antwort generieren
+            response = model.generate_content([
+                {"mime_type": "application/pdf", "data": pdf_bytes},
+                prompt
+            ])
+            
+            text_result = response.text
+            
+            # Ergebnis anzeigen
+            st.success("Analyse fertig!")
+            st.subheader("Zusammenfassung")
+            st.write(text_result)
 
-        if uploaded_file:
-            with st.spinner("Analysiere PDF..."):
-                pdf_bytes = uploaded_file.getvalue()
+            # 5. Vorlese-Funktion (Verbesserte Variante 1)
+            st.divider()
+            st.subheader("Sprachausgabe")
+            
+            if st.button("🔊 Zusammenfassung laut vorlesen"):
+                # Text für JavaScript sicher machen
+                safe_text = text_result.replace("'", "").replace('"', '').replace("\n", " ")
                 
-                # SCHRITT 2: Text-Extraktion Fallback
-                # Falls der direkte PDF-Upload in deiner Region gesperrt ist,
-                # nutzen wir eine einfache Anweisung.
-                prompt = "Analysiere das beigefügte Dokument und fasse es kurz auf Deutsch zusammen."
-                
-                response = model.generate_content([
-                    {"mime_type": "application/pdf", "data": pdf_bytes},
-                    prompt
-                ])
-                
-                text_result = response.text
-                st.subheader("Zusammenfassung:")
-                st.write(text_result)
-
-                # Vorlese-Funktion
-                if st.button("Jetzt laut vorlesen"):
-                    safe_text = text_result.replace("'", "").replace('"', '').replace("\n", " ")
-                    js_code = f"""
-                    <script>
+                js_code = f"""
+                <script>
+                function speak() {{
+                    window.speechSynthesis.cancel(); // Stoppt laufende Sprache
                     var msg = new SpeechSynthesisUtterance('{safe_text}');
                     msg.lang = 'de-DE';
-                    window.speechSynthesis.speak(msg);
-                    </script>
-                    """
-                    st.components.v1.html(js_code, height=0)
                     
-    except Exception as e:
-        st.error(f"Fehler: {e}")
-        st.write("Verfügbare Modelle für deinen Key:")
-        try:
-            st.write([m.name for m in genai.list_models()])
-        except:
-            st.write("Modellliste konnte nicht geladen werden.")
-else:
-    st.info("Bitte gib deinen Gemini API Key ein.")
+                    // Suche nach einer hochwertigen Stimme
+                    var voices = window.speechSynthesis.getVoices();
+                    var bestVoice = voices.find(v => v.lang.startsWith('de') && 
+                        (v.name.includes('Google') || v.name.includes('Online') || v.name.includes('Natural'))) 
+                        || voices.find(v => v.lang.startsWith('de'));
 
+                    if (bestVoice) msg.voice = bestVoice;
+                    window.speechSynthesis.speak(msg);
+                }}
+                
+                // Stimmen laden im Hintergrund
+                if (window.speechSynthesis.onvoiceschanged !== undefined) {{
+                    window.speechSynthesis.onvoiceschanged = speak;
+                }}
+                speak();
+                </script>
+                """
+                st.components.v1.html(js_code, height=0)
+            
+            if st.button("⏹️ Ton stoppen"):
+                st.components.v1.html("<script>window.speechSynthesis.cancel();</script>", height=0)
 
-# Vorlese-Funktion mit verbesserter Stimmenauswahl
-if st.button("Jetzt mit besserer Stimme vorlesen"):
-    # Text bereinigen (keine Umbrüche oder Anführungszeichen)
-    safe_text = text_result.replace("'", "").replace('"', '').replace("\n", " ")
-    
-    js_code = f"""
-    <script>
-    function speak() {{
-        var msg = new SpeechSynthesisUtterance('{safe_text}');
-        msg.lang = 'de-DE';
-        msg.rate = 1.0; // Geschwindigkeit (0.1 bis 10)
-        msg.pitch = 1.0; // Tonhöhe (0 bis 2)
+        except Exception as e:
+            st.error(f"Fehler bei der Verarbeitung: {e}")
 
-        // Alle verfügbaren Stimmen laden
-        var voices = window.speechSynthesis.getVoices();
-        
-        // Suche gezielt nach "natürlichen" Stimmen (Google, Microsoft Online oder Apple)
-        var bestVoice = voices.find(v => v.lang.startsWith('de') && 
-            (v.name.includes('Google') || v.name.includes('Online') || v.name.includes('Natural'))) 
-            || voices.find(v => v.lang.startsWith('de')); // Fallback auf erste deutsche Stimme
-
-        if (bestVoice) {{
-            msg.voice = bestVoice;
-            console.log("Nutze Stimme: " + bestVoice.name);
-        }}
-
-        window.speechSynthesis.cancel(); // Vorherige Sprachausgabe stoppen
-        window.speechSynthesis.speak(msg);
-    }}
-
-    // Da Stimmen oft asynchron geladen werden
-    if (window.speechSynthesis.onvoiceschanged !== undefined) {{
-        window.speechSynthesis.onvoiceschanged = speak;
-    }}
-    speak();
-    </script>
-    """
-    st.components.v1.html(js_code, height=0)
-
+st.info("Hinweis: Diese App nutzt deinen zentral hinterlegten API-Key.")
