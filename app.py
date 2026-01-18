@@ -1,48 +1,54 @@
 import streamlit as st
 import google.generativeai as genai
-import os
 
-# 1. Konfiguration
-st.set_page_config(page_title="Free PDF Reader AI", layout="centered")
+st.set_page_config(page_title="PDF Reader", layout="centered")
 st.title("📄 PDF Vorlese-Assistent")
 
-# API Key aus den Umgebungsvariablen laden (Sicherheit!)
+# API Key Eingabe
 api_key = st.sidebar.text_input("Gemini API Key", type="password")
 
 if api_key:
-    genai.configure(api_key=api_key)
-    model = genai.GenerativeModel('models/gemini-1.5-flash-latest')
+    try:
+        genai.configure(api_key=api_key)
+        # Wir nutzen 'gemini-1.5-flash', aber mit dem vollen Pfad
+        model = genai.GenerativeModel('models/gemini-1.5-flash')
+        
+        uploaded_file = st.file_uploader("Lade ein PDF hoch", type=["pdf"])
 
-    # 2. Upload-Bereich
-    uploaded_file = st.file_uploader("Lade ein PDF hoch", type=["pdf"])
+        if uploaded_file:
+            with st.spinner("Analysiere PDF..."):
+                # PDF Daten korrekt auslesen
+                pdf_bytes = uploaded_file.getvalue()
+                
+                # Inhalt für die API vorbereiten
+                prompt = "Fasse dieses Dokument kurz zusammen, damit ich es vorlesen kann. Antworte auf Deutsch."
+                contents = [
+                    {"mime_type": "application/pdf", "data": pdf_bytes},
+                    prompt
+                ]
+                
+                # Anfrage senden
+                response = model.generate_content(contents)
+                text_result = response.text
+                
+                st.subheader("Zusammenfassung:")
+                st.write(text_result)
 
-    if uploaded_file:
-        with st.spinner("Analysiere PDF..."):
-            # PDF an Gemini senden
-            # Wir nutzen hier die Fähigkeit von Gemini, Dateien direkt zu verarbeiten
-            pdf_data = uploaded_file.read()
-            contents = [
-                {"mime_type": "application/pdf", "data": pdf_data},
-                "Fasse dieses Dokument in 3-5 Sätzen zusammen und bereite den Text so vor, dass man ihn gut vorlesen kann."
-            ]
-
-            response = model.generate_content(contents)
-            text_to_read = response.text
-
-            st.subheader("Zusammenfassung:")
-            st.write(text_to_read)
-
-            # 3. Die Vorlese-Funktion (JavaScript Trick)
-            st.subheader("Vorlesen")
-            if st.button("Jetzt laut vorlesen"):
-                js_code = f"""
-                <script>
-                var msg = new SpeechSynthesisUtterance({repr(text_to_read)});
-                msg.lang = 'de-DE';
-                window.speechSynthesis.speak(msg);
-                </script>
-                """
-                st.components.v1.html(js_code, height=0)
+                # Vorlese-Funktion
+                st.subheader("Vorlesen")
+                if st.button("Jetzt laut vorlesen"):
+                    # Text für JavaScript sicher machen (Anführungszeichen entfernen)
+                    safe_text = text_result.replace("'", "").replace('"', '').replace("\n", " ")
+                    js_code = f"""
+                    <script>
+                    var msg = new SpeechSynthesisUtterance('{safe_text}');
+                    msg.lang = 'de-DE';
+                    window.speechSynthesis.speak(msg);
+                    </script>
+                    """
+                    st.components.v1.html(js_code, height=0)
+                    
+    except Exception as e:
+        st.error(f"Ein Fehler ist aufgetreten: {e}")
 else:
-
-    st.warning("Bitte gib links deinen Gemini API Key ein, um zu starten.")
+    st.info("Bitte gib deinen Gemini API Key in der Seitenleiste ein.")
