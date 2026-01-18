@@ -3,9 +3,9 @@ import google.generativeai as genai
 import re
 
 # 1. Seite & Design
-st.set_page_config(page_title="PDF Reader Pro v3.6", page_icon="🎙️", layout="wide")
+st.set_page_config(page_title="PDF Reader Pro v3.7", page_icon="🎙️", layout="wide")
 
-# Styling für die Buttons und das Layout
+# CSS für kompakte Buttons und sauberes Layout
 st.markdown("""
     <style>
     .stButton>button {
@@ -16,7 +16,6 @@ st.markdown("""
         color: white !important;
         font-weight: 600;
         border: 1px solid #4B4B4B;
-        transition: 0.3s;
     }
     .stButton>button:hover {
         border-color: #FF4B4B;
@@ -25,7 +24,7 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# 2. Disclaimer Pop-up (erscheint beim ersten Laden)
+# 2. Disclaimer Pop-up
 @st.dialog("⚠️ Wichtiger Hinweis")
 def show_disclaimer():
     st.write("""
@@ -33,8 +32,8 @@ def show_disclaimer():
         Bitte stelle **Lautstärke** und **Geschwindigkeit** in der Seitenleiste ein, 
         **bevor** du die Wiedergabe startest. 
         
-        **Warum?** Nachträgliche Änderungen während des Lesens führen dazu, dass die App 
-        die aktuelle Warteschlange löschen muss und beim nächsten Klick wieder von vorne beginnt.
+        Nachträgliche Änderungen während des Lesens führen dazu, dass die Datei 
+        wieder von vorne begonnen wird.
     """)
     if st.button("Verstanden & Schließen"):
         st.rerun()
@@ -43,39 +42,22 @@ if "disclaimer_shown" not in st.session_state:
     st.session_state.disclaimer_shown = True
     show_disclaimer()
 
-# --- GESAMTE PATCHNOTES HISTORIE ---
-with st.expander("📜 Projekt-Historie & Patchnotes (v1.0 - v3.6)"):
+# --- PATCHNOTES ---
+with st.expander("📜 Projekt-Historie (v1.0 - v3.7)"):
     st.markdown("""
-    **v3.6 (Aktuell)**
-    * 🏷️ UI-Anpassung: Credits unter Audio-Konsole verschoben.
-    * 📚 Historie: Alle Entwicklungsschritte dokumentiert.
-    
-    **v3.5**
-    * 🔔 Disclaimer Pop-up integriert.
-    * 💅 Button-Design modernisiert (kompakter).
-    
-    **v3.3 - v3.4**
-    * 🚫 **Smart Skip:** Automatische Erkennung und Überspringen von Inhaltsverzeichnissen.
-    * 💎 **Branding:** 'Coded by hinzugefügt.
-    
-    **v3.0 - v3.2**
-    * 🎤 **Audio Engine 2.0:** Wechsel auf satzweise Verarbeitung für stabilere Regler-Steuerung.
-    * 🛡️ **Halluzinations-Schutz:** Strengere KI-Prompts gegen "erfundenen" Text.
-    * 🧹 **Deep Clean:** Filterung von Binärcode und PDF-Artefakten.
-    
-    **v1.0 - v2.1**
-    * 💎 **Premium-Support:** Umstellung auf Pay-as-you-go (Gemini 1.5 Pro).
-    * 🛠️ **Universal Fix:** Dynamische Modell-Suche gegen 404-Fehler.
-    * 🛡️ **Quota-Schutz:** Automatisches Failover zwischen Modellen.
+    **v3.7 (Aktuell)**
+    * 🔧 **Fix:** Text-Expander (Ausklappen) wiederhergestellt.
+    * 🎤 **Voice-Boost:** Verbesserte Erkennung von Premium-Stimmen (Natural/Online).
+    * 📝 **Clean-Up:** Optimierte Textreinigung für flüssigeres Vorlesen.
     """)
 
-st.title("🎙️ PDF Reder And Summaries")
+st.title("🎙️ PDF Vorleser Pro")
 
-# 3. API & Modell-Setup
+# 3. API & Modell
 if "GEMINI_API_KEY" in st.secrets:
     genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
 else:
-    st.error("API Key fehlt in den Secrets!")
+    st.error("API Key fehlt!")
     st.stop()
 
 @st.cache_resource
@@ -90,13 +72,11 @@ def get_model():
 
 model = get_model()
 
-# 4. Sidebar mit Credits an der gewünschten Stelle
+# 4. Sidebar
 st.sidebar.header("🎚️ Audio-Konsole")
 vol = st.sidebar.slider("Lautstärke", 0.0, 1.0, 1.0, 0.1)
 rate = st.sidebar.slider("Geschwindigkeit", 0.5, 2.0, 1.0, 0.1)
 st.sidebar.markdown(f"<div style='text-align: center; padding-top: 10px; font-weight: bold;'>Coded by Tobias Kaes</div>", unsafe_allow_html=True)
-st.sidebar.divider()
-st.sidebar.info("Tipp: Nutze Microsoft Edge für die besten 'Natural' Stimmen.")
 
 # 5. Upload & Logik
 uploaded_file = st.file_uploader("PDF Dokument hochladen", type=["pdf"])
@@ -110,21 +90,25 @@ if uploaded_file and model:
     with c2: btn_sum = st.button("📝 Zusammenfassung")
 
     if btn_read or btn_sum:
-        with st.spinner("KI verarbeitet das Dokument..."):
+        with st.spinner("KI verarbeitet..."):
             try:
                 pdf_bytes = uploaded_file.getvalue()
-                prompt = ("Extrahiere den flüssigen Haupttext. Überspringe Inhaltsverzeichnis und Metadaten." if btn_read else "Fasse den Inhalt flüssig auf Deutsch zusammen.")
+                prompt = ("Extrahiere nur den flüssigen Haupttext ohne Inhaltsverzeichnis." if btn_read else "Fasse den Inhalt flüssig zusammen.")
                 response = model.generate_content([{"mime_type": "application/pdf", "data": pdf_bytes}, prompt])
+                # Reinigung von Markdown
                 st.session_state["text"] = re.sub(r'[*#_\\-]', '', response.text)
                 st.session_state["fid"] = file_id
+                st.session_state["mode"] = "Volltext" if btn_read else "Zusammenfassung"
             except Exception as e:
-                st.error(f"Fehler bei der KI-Verarbeitung: {e}")
+                st.error(f"Fehler: {e}")
 
+    # TEXT WIEDER AUSKLAPPBAR MACHEN
     if "text" in st.session_state and st.session_state["fid"] == file_id:
         st.divider()
-        st.markdown("### 🔊 Wiedergabe")
+        with st.expander(f"📄 {st.session_state['mode']} anzeigen / ausklappen"):
+            st.write(st.session_state["text"])
         
-        # Text in Sätze zerlegen
+        st.markdown("### 🔊 Wiedergabe")
         sentences = [s.strip() for s in re.split(r'(?<=[.!?]) +', st.session_state["text"]) if len(s) > 3]
         
         cp, cs = st.columns(2)
@@ -137,18 +121,26 @@ if uploaded_file and model:
                     setTimeout(() => {{
                         const sents = {sentences};
                         let i = 0;
+                        const synth = window.speechSynthesis;
+
                         function speak() {{
                             if (i < sents.length) {{
                                 const u = new SpeechSynthesisUtterance(sents[i]);
                                 u.lang = 'de-DE'; u.volume = {vol}; u.rate = {rate};
-                                const vs = window.speechSynthesis.getVoices();
-                                u.voice = vs.find(v => v.lang.includes('de') && (v.name.includes('Natural') || v.name.includes('Online'))) || vs.find(v => v.lang.startsWith('de'));
+                                
+                                // Aggressive Suche nach Natural-Stimmen
+                                let vs = synth.getVoices();
+                                let bestVoice = vs.find(v => v.lang.includes('de') && (v.name.includes('Natural') || v.name.includes('Online')))
+                                                || vs.find(v => v.lang.includes('de') && v.name.includes('Google'))
+                                                || vs.find(v => v.lang.startsWith('de'));
+                                
+                                if (bestVoice) u.voice = bestVoice;
                                 u.onend = () => {{ i++; speak(); }};
-                                window.speechSynthesis.speak(u);
+                                synth.speak(u);
                             }}
                         }}
                         speak();
-                    }}, 300);
+                    }}, 400); // Etwas mehr Zeit für die Stimmen-Liste
                 }})();
                 </script>
                 """
@@ -157,6 +149,4 @@ if uploaded_file and model:
             if st.button("⏹️ STOPP"):
                 st.components.v1.html("<script>window.speechSynthesis.cancel();</script>", height=0)
 
-# 6. Kleiner Footer
-st.caption("v3.6 Pro | Coded by Tobias Kaes")
-
+st.caption("v3.7 Pro | Coded by Tobias Kaes")
