@@ -163,9 +163,10 @@ if uploaded_file and model:
                 """
                 st.components.v1.html(js, height=0)
         with cs:
-            if st.button("⏹️ STOPP"):
+            if st.button("⏹️ Stop"):
                 st.components.v1.html("<script>window.speechSynthesis.cancel();</script>", height=0)
 
 st.caption("v3.8 Pro | Coded by Tobias Kaes")
+
 
 
