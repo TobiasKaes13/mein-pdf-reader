@@ -66,3 +66,44 @@ if api_key:
             st.write("Modellliste konnte nicht geladen werden.")
 else:
     st.info("Bitte gib deinen Gemini API Key ein.")
+
+
+# Vorlese-Funktion mit verbesserter Stimmenauswahl
+if st.button("Jetzt mit besserer Stimme vorlesen"):
+    # Text bereinigen (keine Umbrüche oder Anführungszeichen)
+    safe_text = text_result.replace("'", "").replace('"', '').replace("\n", " ")
+    
+    js_code = f"""
+    <script>
+    function speak() {{
+        var msg = new SpeechSynthesisUtterance('{safe_text}');
+        msg.lang = 'de-DE';
+        msg.rate = 1.0; // Geschwindigkeit (0.1 bis 10)
+        msg.pitch = 1.0; // Tonhöhe (0 bis 2)
+
+        // Alle verfügbaren Stimmen laden
+        var voices = window.speechSynthesis.getVoices();
+        
+        // Suche gezielt nach "natürlichen" Stimmen (Google, Microsoft Online oder Apple)
+        var bestVoice = voices.find(v => v.lang.startsWith('de') && 
+            (v.name.includes('Google') || v.name.includes('Online') || v.name.includes('Natural'))) 
+            || voices.find(v => v.lang.startsWith('de')); // Fallback auf erste deutsche Stimme
+
+        if (bestVoice) {{
+            msg.voice = bestVoice;
+            console.log("Nutze Stimme: " + bestVoice.name);
+        }}
+
+        window.speechSynthesis.cancel(); // Vorherige Sprachausgabe stoppen
+        window.speechSynthesis.speak(msg);
+    }}
+
+    // Da Stimmen oft asynchron geladen werden
+    if (window.speechSynthesis.onvoiceschanged !== undefined) {{
+        window.speechSynthesis.onvoiceschanged = speak;
+    }}
+    speak();
+    </script>
+    """
+    st.components.v1.html(js_code, height=0)
+
