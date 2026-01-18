@@ -151,4 +151,5 @@ if uploaded_file and model:
                 st.components.v1.html("<script>window.speechSynthesis.cancel();</script>", height=0)
 
 # 7. Footer & Branding
-st.markdown('<div class="footer">Coded by Tobias Kaes | Powered by Gemini 1.5 Pro</div>', unsafe_allow_html=True)
+st.markdown("<div style='text-align: center; color: gray;'>Coded by Tobias Kaes</div>", unsafe_allow_html=True)
+
