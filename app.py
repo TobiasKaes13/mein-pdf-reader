@@ -2,33 +2,36 @@ import streamlit as st
 import google.generativeai as genai
 import re
 
-# 1. Seite & Design (Kontrast-Fix für Buttons)
-st.set_page_config(page_title="PDF Reader Pro v3.2", page_icon="🎙️", layout="wide")
+# 1. Seite & Design (Kontrast-Fix & Layout)
+st.set_page_config(page_title="PDF Reader Pro v3.3", page_icon="🎙️", layout="wide")
 
 st.markdown("""
     <style>
+    /* Buttons extrem gut lesbar machen */
     .stButton>button {
         width: 100%;
-        border-radius: 8px;
-        height: 3.5em;
-        background-color: #262730 !important; /* Dunkler Hintergrund */
-        color: white !important;             /* Weiße Schrift */
-        font-weight: bold;
-        border: 1px solid #4B4B4B;
+        border-radius: 12px;
+        height: 4em;
+        background-color: #1E1E1E !important; /* Tiefschwarz */
+        color: #FFFFFF !important;             /* Reinweiß */
+        font-size: 18px !important;
+        font-weight: 800 !important;
+        border: 2px solid #FF4B4B !important;  /* Roter Rahmen für Kontrast */
+        box-shadow: 2px 2px 10px rgba(0,0,0,0.2);
     }
     .stButton>button:hover {
-        background-color: #4B4B4B !important;
-        border: 1px solid #FF4B4B;
+        background-color: #FF4B4B !important;
+        color: white !important;
     }
     </style>
     """, unsafe_allow_html=True)
 
 # --- PATCH NOTES ---
-with st.expander("🚀 Patch Notes v3.2 - Design & Voice Fix"):
+with st.expander("🚀 Patch Notes v3.3 - Smart Skip"):
     st.markdown("""
-    * 🎨 **Button-Kontrast:** Buttons sind jetzt dunkel mit weißer Schrift (bessere Lesbarkeit).
-    * 🗣️ **Voice-Engine Pro:** Verbesserte Suche nach Microsoft Online & Google Stimmen.
-    * 🧹 **No-Trash Filter:** Aggressivere Reinigung von PDF-Artefakten.
+    * 🚫 **Skip TOC:** Das Inhaltsverzeichnis wird jetzt automatisch erkannt und übersprungen.
+    * 🎨 **High Contrast Buttons:** Schwarz-Rote Buttons für maximale Lesbarkeit.
+    * 🗣️ **Premium Audio:** Beste verfügbare Systemstimmen werden automatisch gewählt.
     """)
 
 st.title("🎙️ PDF Vorleser Pro")
@@ -37,7 +40,7 @@ st.title("🎙️ PDF Vorleser Pro")
 if "GEMINI_API_KEY" in st.secrets:
     genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
 else:
-    st.error("⚠️ Bitte hinterlege deinen GEMINI_API_KEY in den Streamlit Secrets.")
+    st.error("⚠️ API Key fehlt! Bitte in den Streamlit Cloud Secrets hinterlegen.")
     st.stop()
 
 # 3. Modell-Suche
@@ -64,21 +67,27 @@ uploaded_file = st.file_uploader("PDF Dokument hochladen", type=["pdf"])
 if uploaded_file and model:
     file_id = f"{uploaded_file.name}_{uploaded_file.size}"
     
-    # Auswahl-Buttons
-    st.markdown("### 1. Modus wählen")
+    st.markdown("### 1. Was soll ich tun?")
     c1, c2 = st.columns(2)
-    with c1: btn_read = st.button("📖 Ganze PDF lesen")
-    with c2: btn_sum = st.button("📝 Zusammenfassung")
+    with c1: btn_read = st.button("📖 GANZE PDF LESEN (Ohne Verzeichnis)")
+    with c2: btn_sum = st.button("📝 ZUSAMMENFASSUNG")
 
     if btn_read or btn_sum:
-        with st.spinner("KI verarbeitet Text..."):
+        with st.spinner("KI filtert Inhaltsverzeichnis und bereitet Text vor..."):
             try:
                 pdf_bytes = uploaded_file.getvalue()
-                prompt = ("Gib NUR den reinen deutschen Text wieder. Keine Kommentare, kein Müll." 
-                          if btn_read else "Fasse das Dokument flüssig auf Deutsch zusammen.")
+                
+                if btn_read:
+                    # Der neue "Skip-TOC" Prompt
+                    prompt = """Extrahiere den flüssigen Haupttext des Dokuments auf Deutsch. 
+                    WICHTIG: Überspringe das Inhaltsverzeichnis, Kopfzeilen, Fußzeilen und Seitenzahlen komplett. 
+                    Lies direkt beim ersten echten Textkapitel los. Gib KEINE Metadaten oder Listen von Kapiteln aus."""
+                else:
+                    prompt = "Fasse den Kerninhalt des Dokuments flüssig auf Deutsch zusammen. Ignoriere das Inhaltsverzeichnis."
                 
                 response = model.generate_content([{"mime_type": "application/pdf", "data": pdf_bytes}, prompt])
-                # Harte Reinigung von Sonderzeichen
+                
+                # Säuberung von Markdown
                 cleaned = re.sub(r'[*#_\\-]', '', response.text)
                 st.session_state["text"] = cleaned
                 st.session_state["fid"] = file_id
@@ -88,22 +97,21 @@ if uploaded_file and model:
     if "text" in st.session_state and st.session_state["fid"] == file_id:
         text_ready = st.session_state["text"]
         
-        with st.expander("Extrahierten Text prüfen"):
+        with st.expander("Vorschau des gefilterten Textes"):
             st.write(text_ready)
 
         # 6. Audio Steuerung
-        st.markdown("### 2. Sprachausgabe")
+        st.markdown("### 2. Wiedergabe")
+        # Zerlegung in Sätze
         sentences = [s.strip() for s in re.split(r'(?<=[.!?]) +', text_ready) if len(s) > 3]
         
         col_play, col_stop = st.columns(2)
         with col_play:
-            if st.button("▶️ JETZT VORLESEN"):
+            if st.button("▶️ START / UPDATE"):
                 js_code = f"""
                 <script>
                 (function() {{
                     window.speechSynthesis.cancel();
-                    
-                    // Kleine Verzögerung damit Stimmen geladen werden können
                     setTimeout(() => {{
                         const sentences = {sentences};
                         let i = 0;
@@ -117,7 +125,6 @@ if uploaded_file and model:
                                 utter.rate = {rate};
                                 
                                 const voices = synth.getVoices();
-                                // Priorisierung der besten Stimmen
                                 const bestVoice = voices.find(v => v.lang.includes('de') && (v.name.includes('Natural') || v.name.includes('Online'))) 
                                               || voices.find(v => v.lang.includes('de') && v.name.includes('Google'))
                                               || voices.find(v => v.lang.startsWith('de'));
@@ -128,7 +135,7 @@ if uploaded_file and model:
                             }}
                         }}
                         speakNext();
-                    }}, 200); 
+                    }}, 300); 
                 }})();
                 </script>
                 """
@@ -138,4 +145,4 @@ if uploaded_file and model:
             if st.button("⏹️ STOPP"):
                 st.components.v1.html("<script>window.speechSynthesis.cancel();</script>", height=0)
 
-st.caption(f"v3.2 Pro | Modell aktiv: {model.model_name if model else 'Suche...'}")
+st.caption(f"v3.3 Pro | Aktiv: {model.model_name if model else 'Suche...'}")
