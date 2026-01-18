@@ -11,7 +11,7 @@ api_key = st.sidebar.text_input("Gemini API Key", type="password")
 
 if api_key:
     genai.configure(api_key=api_key)
-    model = genai.GenerativeModel('gemini-1.5-flash')
+    model = genai.GenerativeModel('models/gemini-1.5-flash-latest')
 
     # 2. Upload-Bereich
     uploaded_file = st.file_uploader("Lade ein PDF hoch", type=["pdf"])
@@ -44,4 +44,5 @@ if api_key:
                 """
                 st.components.v1.html(js_code, height=0)
 else:
+
     st.warning("Bitte gib links deinen Gemini API Key ein, um zu starten.")
