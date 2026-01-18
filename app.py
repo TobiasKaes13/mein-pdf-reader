@@ -56,7 +56,7 @@ with st.expander("📜 Projekt-Historie & Patchnotes (v1.0 - v3.6)"):
     
     **v3.3 - v3.4**
     * 🚫 **Smart Skip:** Automatische Erkennung und Überspringen von Inhaltsverzeichnissen.
-    * 💎 **Branding:** 'Coded by Tobias Kaes' hinzugefügt.
+    * 💎 **Branding:** 'Coded by hinzugefügt.
     
     **v3.0 - v3.2**
     * 🎤 **Audio Engine 2.0:** Wechsel auf satzweise Verarbeitung für stabilere Regler-Steuerung.
@@ -69,7 +69,7 @@ with st.expander("📜 Projekt-Historie & Patchnotes (v1.0 - v3.6)"):
     * 🛡️ **Quota-Schutz:** Automatisches Failover zwischen Modellen.
     """)
 
-st.title("🎙️ PDF Vorleser Pro")
+st.title("🎙️ PDF Reder And Summaries")
 
 # 3. API & Modell-Setup
 if "GEMINI_API_KEY" in st.secrets:
@@ -159,3 +159,4 @@ if uploaded_file and model:
 
 # 6. Kleiner Footer
 st.caption("v3.6 Pro | Coded by Tobias Kaes")
+
