@@ -91,7 +91,7 @@ def get_model():
 model = get_model()
 
 # 4. Sidebar
-st.sidebar.header("🎚️ Audio-Konsole")
+st.sidebar.header("🎚️ Audio Settings")
 vol = st.sidebar.slider("Lautstärke", 0.0, 1.0, 1.0, 0.1)
 rate = st.sidebar.slider("Geschwindigkeit", 0.5, 2.0, 1.0, 0.1)
 st.sidebar.markdown(f"<div style='text-align: center; padding-top: 10px; font-weight: bold;'>Coded by Tobias Kaes ✌️</div>", unsafe_allow_html=True)
@@ -168,6 +168,7 @@ if uploaded_file and model:
                 st.components.v1.html("<script>window.speechSynthesis.cancel();</script>", height=0)
 
 st.caption("v3.7 Pro | Coded by Tobias Kaes")
+
 
 
 
