@@ -34,7 +34,7 @@ with st.expander("🚀 Patch Notes v3.3 - Smart Skip"):
     * 🗣️ **Premium Audio:** Beste verfügbare Systemstimmen werden automatisch gewählt.
     """)
 
-st.title("🎙️ PDF Vorleser Pro")
+st.title("🎙️PDF Reader & Summaries")
 
 # 2. API Key Check
 if "GEMINI_API_KEY" in st.secrets:
@@ -146,3 +146,4 @@ if uploaded_file and model:
                 st.components.v1.html("<script>window.speechSynthesis.cancel();</script>", height=0)
 
 st.caption(f"v3.3 Pro | Aktiv: {model.model_name if model else 'Suche...'}")
+
