@@ -101,4 +101,5 @@ if uploaded_file:
         except Exception as e:
             st.error(f"Fehler: {e}")
 
-st.caption("v1.3 | Erstellt mit Gemini & Streamlit")
+st.caption("v1.3 | Erstellt Von Tobias Kaes")
+
