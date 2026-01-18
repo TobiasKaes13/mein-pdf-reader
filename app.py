@@ -2,23 +2,33 @@ import streamlit as st
 import google.generativeai as genai
 import re
 
-# 1. Seite & Design fixen
-st.set_page_config(page_title="PDF Reader Pro v3.1", page_icon="🎙️", layout="wide")
+# 1. Seite & Design (Kontrast-Fix für Buttons)
+st.set_page_config(page_title="PDF Reader Pro v3.2", page_icon="🎙️", layout="wide")
 
-# Korrektur des HTML-Arguments (unsafe_allow_html statt unsafe_allow_index)
 st.markdown("""
     <style>
-    .main { background-color: #f5f7f9; }
-    .stButton>button { width: 100%; border-radius: 10px; height: 3em; background-color: #f0f2f6; }
+    .stButton>button {
+        width: 100%;
+        border-radius: 8px;
+        height: 3.5em;
+        background-color: #262730 !important; /* Dunkler Hintergrund */
+        color: white !important;             /* Weiße Schrift */
+        font-weight: bold;
+        border: 1px solid #4B4B4B;
+    }
+    .stButton>button:hover {
+        background-color: #4B4B4B !important;
+        border: 1px solid #FF4B4B;
+    }
     </style>
     """, unsafe_allow_html=True)
 
 # --- PATCH NOTES ---
-with st.expander("🚀 Patch Notes v3.1 - Bugfix & Audio"):
+with st.expander("🚀 Patch Notes v3.2 - Design & Voice Fix"):
     st.markdown("""
-    * 🐛 **Bugfix:** TypeError bei Seiten-Design behoben.
-    * 🔊 **Audio-Sync:** Lautstärke- und Geschwindigkeits-Parameter korrigiert.
-    * 💎 **Pro Model:** Nutzt deine Abo-Power für saubere Text-Extraktion.
+    * 🎨 **Button-Kontrast:** Buttons sind jetzt dunkel mit weißer Schrift (bessere Lesbarkeit).
+    * 🗣️ **Voice-Engine Pro:** Verbesserte Suche nach Microsoft Online & Google Stimmen.
+    * 🧹 **No-Trash Filter:** Aggressivere Reinigung von PDF-Artefakten.
     """)
 
 st.title("🎙️ PDF Vorleser Pro")
@@ -39,8 +49,7 @@ def get_model():
         for p in prio:
             if p in models: return genai.GenerativeModel(p)
         return genai.GenerativeModel(models[0]) if models else None
-    except:
-        return None
+    except: return None
 
 model = get_model()
 
@@ -55,6 +64,8 @@ uploaded_file = st.file_uploader("PDF Dokument hochladen", type=["pdf"])
 if uploaded_file and model:
     file_id = f"{uploaded_file.name}_{uploaded_file.size}"
     
+    # Auswahl-Buttons
+    st.markdown("### 1. Modus wählen")
     c1, c2 = st.columns(2)
     with c1: btn_read = st.button("📖 Ganze PDF lesen")
     with c2: btn_sum = st.button("📝 Zusammenfassung")
@@ -63,14 +74,12 @@ if uploaded_file and model:
         with st.spinner("KI verarbeitet Text..."):
             try:
                 pdf_bytes = uploaded_file.getvalue()
-                if btn_read:
-                    prompt = "Extrahiere den Text wortwörtlich. Entferne NUR Seitenzahlen und unleserlichen Daten-Müll. Antworte nur mit dem Text."
-                else:
-                    prompt = "Erstelle eine flüssige Zusammenfassung auf Deutsch ohne Aufzählungszeichen."
+                prompt = ("Gib NUR den reinen deutschen Text wieder. Keine Kommentare, kein Müll." 
+                          if btn_read else "Fasse das Dokument flüssig auf Deutsch zusammen.")
                 
                 response = model.generate_content([{"mime_type": "application/pdf", "data": pdf_bytes}, prompt])
-                # Reinigung
-                cleaned = response.text.replace("*", "").replace("#", "").replace("_", "")
+                # Harte Reinigung von Sonderzeichen
+                cleaned = re.sub(r'[*#_\\-]', '', response.text)
                 st.session_state["text"] = cleaned
                 st.session_state["fid"] = file_id
             except Exception as e:
@@ -79,47 +88,54 @@ if uploaded_file and model:
     if "text" in st.session_state and st.session_state["fid"] == file_id:
         text_ready = st.session_state["text"]
         
-        with st.expander("Vorschau des Textes"):
+        with st.expander("Extrahierten Text prüfen"):
             st.write(text_ready)
 
         # 6. Audio Steuerung
-        st.divider()
+        st.markdown("### 2. Sprachausgabe")
         sentences = [s.strip() for s in re.split(r'(?<=[.!?]) +', text_ready) if len(s) > 3]
         
         col_play, col_stop = st.columns(2)
         with col_play:
-            if st.button("▶️ Vorlesen starten"):
-                # JavaScript mit korrekten Variablen-Übergaben
+            if st.button("▶️ JETZT VORLESEN"):
                 js_code = f"""
                 <script>
                 (function() {{
                     window.speechSynthesis.cancel();
-                    const sentences = {sentences};
-                    let i = 0;
-                    function speakNext() {{
-                        if (i < sentences.length) {{
-                            const utter = new SpeechSynthesisUtterance(sentences[i]);
-                            utter.lang = 'de-DE';
-                            utter.volume = {vol};
-                            utter.rate = {rate};
-                            
-                            const v = window.speechSynthesis.getVoices();
-                            utter.voice = v.find(v => v.lang.includes('de') && (v.name.includes('Natural') || v.name.includes('Online'))) 
-                                          || v.find(v => v.lang.includes('de') && v.name.includes('Google'))
-                                          || v.find(v => v.lang.startsWith('de'));
-                            
-                            utter.onend = () => {{ i++; speakNext(); }};
-                            window.speechSynthesis.speak(utter);
+                    
+                    // Kleine Verzögerung damit Stimmen geladen werden können
+                    setTimeout(() => {{
+                        const sentences = {sentences};
+                        let i = 0;
+                        const synth = window.speechSynthesis;
+
+                        function speakNext() {{
+                            if (i < sentences.length) {{
+                                const utter = new SpeechSynthesisUtterance(sentences[i]);
+                                utter.lang = 'de-DE';
+                                utter.volume = {vol};
+                                utter.rate = {rate};
+                                
+                                const voices = synth.getVoices();
+                                // Priorisierung der besten Stimmen
+                                const bestVoice = voices.find(v => v.lang.includes('de') && (v.name.includes('Natural') || v.name.includes('Online'))) 
+                                              || voices.find(v => v.lang.includes('de') && v.name.includes('Google'))
+                                              || voices.find(v => v.lang.startsWith('de'));
+                                
+                                if (bestVoice) utter.voice = bestVoice;
+                                utter.onend = () => {{ i++; speakNext(); }};
+                                synth.speak(utter);
+                            }}
                         }}
-                    }}
-                    speakNext();
+                        speakNext();
+                    }}, 200); 
                 }})();
                 </script>
                 """
                 st.components.v1.html(js_code, height=0)
 
         with col_stop:
-            if st.button("⏹️ Stopp"):
+            if st.button("⏹️ STOPP"):
                 st.components.v1.html("<script>window.speechSynthesis.cancel();</script>", height=0)
 
-st.caption(f"v3.1 Pro | Modell: {model.model_name if model else 'Suche...'}")
+st.caption(f"v3.2 Pro | Modell aktiv: {model.model_name if model else 'Suche...'}")
