@@ -46,12 +46,11 @@ if "disclaimer_shown" not in st.session_state:
 with st.expander("📜 Patch Notes"):
     st.markdown("""
     **v3.8 (Aktuell)**
-    * 📜 Vollständige Patch Notes Historie integriert.
     * 🎤 Voice-Engine Stabilitäts-Fix.
     
     **v3.7**
-    * 🔧 **Fix:** Text-Expander (Ausklappen) für Zusammenfassung/Volltext wiederhergestellt.
-    * 🎤 **Voice-Boost:** Aggressive Suche nach Natural-Stimmen (Online).
+    * 🔧 **Fix:** Text Expander (Ausklappen) für Zusammenfassung/Volltext wiederhergestellt.
+    * 🎤 **Voice Boost:** Aggressive Suche nach Natural-Stimmen (Online).
     
     **v3.5 - v3.6**
     * 🔔 **Disclaimer:** Pop-up Fenster beim Seitenstart hinzugefügt.
@@ -60,14 +59,14 @@ with st.expander("📜 Patch Notes"):
     
     **v3.0 - v3.4**
     * 🚫 **Skip TOC:** Inhaltsverzeichnisse werden automatisch ignoriert.
-    * 💎 **Branding:** Einführung 'Coded by Tobias Kaes'.
+    * 💎 **Branding:** Einführung 'Coded by'.
     * 🎤 **Audio Engine 2.0:** Umstellung auf satzweise Verarbeitung für Live-Regler.
-    * 🛡️ **Halluzinations-Schutz:** KI-Prompts gegen erfundene Inhalte verschärft.
+    * 🛡️ **Halluzinations Schutz:** KI-Prompts gegen erfundene Inhalte verschärft.
     
     **v1.0 - v2.1**
-    * 💎 **Abo-Support:** Optimierung für bezahlte API-Keys (Gemini 1.5 Pro).
+    * 💎 **Abo-Support:** Optimierung für bezahlte API-Keys.
     * 🛠️ **Universal Fix:** Dynamische Modell-Suche gegen 404-Fehler.
-    * 🛡️ **Quota-Schutz:** Failover-System zur Vermeidung von 429-Fehlern.
+    * 🛡️ **Quota Schutz:** Failover-System zur Vermeidung von 429-Fehlern.
     """)
 
 st.title("PDF Reder & Summaries")
@@ -169,5 +168,6 @@ if uploaded_file and model:
                 st.components.v1.html("<script>window.speechSynthesis.cancel();</script>", height=0)
 
 st.caption("v3.7 Pro | Coded by Tobias Kaes")
+
 
 
