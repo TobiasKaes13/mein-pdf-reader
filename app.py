@@ -67,9 +67,9 @@ uploaded_file = st.file_uploader("PDF Dokument hochladen", type=["pdf"])
 if uploaded_file and model:
     file_id = f"{uploaded_file.name}_{uploaded_file.size}"
     
-    st.markdown("### 1. Was soll ich tun?")
+    st.markdown("### 1. Zusammenfassen oder Ganze PDF?")
     c1, c2 = st.columns(2)
-    with c1: btn_read = st.button("📖 GANZE PDF LESEN (Ohne Verzeichnis)")
+    with c1: btn_read = st.button("📖 GANZE PDF LESEN")
     with c2: btn_sum = st.button("📝 ZUSAMMENFASSUNG")
 
     if btn_read or btn_sum:
@@ -146,4 +146,5 @@ if uploaded_file and model:
                 st.components.v1.html("<script>window.speechSynthesis.cancel();</script>", height=0)
 
 st.caption(f"v3.3 Pro | Aktiv: {model.model_name if model else 'Suche...'}")
+
 
