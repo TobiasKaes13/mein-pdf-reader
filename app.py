@@ -43,7 +43,7 @@ if "disclaimer_shown" not in st.session_state:
     show_disclaimer()
 
 # --- PATCHNOTES ---
-with st.expander("📜 Projekt-Historie & Patch Notes (Stand: 18.01.2026)"):
+with st.expander("📜 Patch Notes"):
     st.markdown("""
     **v3.8 (Aktuell)**
     * 📜 Vollständige Patch Notes Historie integriert.
@@ -95,7 +95,7 @@ model = get_model()
 st.sidebar.header("🎚️ Audio-Konsole")
 vol = st.sidebar.slider("Lautstärke", 0.0, 1.0, 1.0, 0.1)
 rate = st.sidebar.slider("Geschwindigkeit", 0.5, 2.0, 1.0, 0.1)
-st.sidebar.markdown(f"<div style='text-align: center; padding-top: 10px; font-weight: bold;'>Coded by Tobias Kaes</div>", unsafe_allow_html=True)
+st.sidebar.markdown(f"<div style='text-align: center; padding-top: 10px; font-weight: bold;'>Coded by Tobias Kaes ✌️</div>", unsafe_allow_html=True)
 
 # 5. Upload & Logik
 uploaded_file = st.file_uploader("PDF Dokument hochladen", type=["pdf"])
@@ -165,8 +165,9 @@ if uploaded_file and model:
                 """
                 st.components.v1.html(js, height=0)
         with cs:
-            if st.button("⏹️ STOPP"):
+            if st.button("⏹️ Stop"):
                 st.components.v1.html("<script>window.speechSynthesis.cancel();</script>", height=0)
 
 st.caption("v3.7 Pro | Coded by Tobias Kaes")
+
 
