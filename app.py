@@ -43,15 +43,34 @@ if "disclaimer_shown" not in st.session_state:
     show_disclaimer()
 
 # --- PATCHNOTES ---
-with st.expander("📜 Projekt-Historie (v1.0 - v3.7)"):
+with st.expander("📜 Projekt-Historie & Patch Notes (Stand: 18.01.2026)"):
     st.markdown("""
-    **v3.7 (Aktuell)**
-    * 🔧 **Fix:** Text-Expander (Ausklappen) wiederhergestellt.
-    * 🎤 **Voice-Boost:** Verbesserte Erkennung von Premium-Stimmen (Natural/Online).
-    * 📝 **Clean-Up:** Optimierte Textreinigung für flüssigeres Vorlesen.
+    **v3.8 (Aktuell)**
+    * 📜 Vollständige Patch Notes Historie integriert.
+    * 🎤 Voice-Engine Stabilitäts-Fix.
+    
+    **v3.7**
+    * 🔧 **Fix:** Text-Expander (Ausklappen) für Zusammenfassung/Volltext wiederhergestellt.
+    * 🎤 **Voice-Boost:** Aggressive Suche nach Natural-Stimmen (Online).
+    
+    **v3.5 - v3.6**
+    * 🔔 **Disclaimer:** Pop-up Fenster beim Seitenstart hinzugefügt.
+    * 🏷️ **UI:** Credits 'Coded by Tobias Kaes' unter die Audio-Regler verschoben.
+    * 💅 **Design:** Buttons kompakter und moderner gestaltet.
+    
+    **v3.0 - v3.4**
+    * 🚫 **Skip TOC:** Inhaltsverzeichnisse werden automatisch ignoriert.
+    * 💎 **Branding:** Einführung 'Coded by Tobias Kaes'.
+    * 🎤 **Audio Engine 2.0:** Umstellung auf satzweise Verarbeitung für Live-Regler.
+    * 🛡️ **Halluzinations-Schutz:** KI-Prompts gegen erfundene Inhalte verschärft.
+    
+    **v1.0 - v2.1**
+    * 💎 **Abo-Support:** Optimierung für bezahlte API-Keys (Gemini 1.5 Pro).
+    * 🛠️ **Universal Fix:** Dynamische Modell-Suche gegen 404-Fehler.
+    * 🛡️ **Quota-Schutz:** Failover-System zur Vermeidung von 429-Fehlern.
     """)
 
-st.title("🎙️ PDF Vorleser Pro")
+st.title("PDF Reder & Summaries")
 
 # 3. API & Modell
 if "GEMINI_API_KEY" in st.secrets:
@@ -86,7 +105,7 @@ if uploaded_file and model:
     
     st.markdown("### 🛠️ Modus wählen")
     c1, c2 = st.columns(2)
-    with c1: btn_read = st.button("📖 Volltext (Skip Inhaltsverzeichnis)")
+    with c1: btn_read = st.button("📖 Ganze PDF")
     with c2: btn_sum = st.button("📝 Zusammenfassung")
 
     if btn_read or btn_sum:
@@ -113,7 +132,7 @@ if uploaded_file and model:
         
         cp, cs = st.columns(2)
         with cp:
-            if st.button("▶️ START / NEUSTART"):
+            if st.button("▶️ Start / Restart"):
                 js = f"""
                 <script>
                 (function() {{
@@ -150,3 +169,4 @@ if uploaded_file and model:
                 st.components.v1.html("<script>window.speechSynthesis.cancel();</script>", height=0)
 
 st.caption("v3.7 Pro | Coded by Tobias Kaes")
+
