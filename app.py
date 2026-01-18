@@ -131,7 +131,7 @@ if uploaded_file and model:
         
         cp, cs = st.columns(2)
         with cp:
-            if st.button("▶️ START / NEUSTART"):
+            if st.button("▶️ Start / Restart"):
                 js = f"""
                 <script>
                 (function() {{
@@ -167,4 +167,5 @@ if uploaded_file and model:
                 st.components.v1.html("<script>window.speechSynthesis.cancel();</script>", height=0)
 
 st.caption("v3.8 Pro | Coded by Tobias Kaes")
+
 
