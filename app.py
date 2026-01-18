@@ -3,8 +3,9 @@ import google.generativeai as genai
 import re
 
 # 1. Seite & Design
-st.set_page_config(page_title="PDF Reader Pro v3.8", page_icon="🎙️", layout="wide")
+st.set_page_config(page_title="PDF Reader Pro v3.7", page_icon="🎙️", layout="wide")
 
+# CSS für kompakte Buttons und sauberes Layout
 st.markdown("""
     <style>
     .stButton>button {
@@ -41,41 +42,22 @@ if "disclaimer_shown" not in st.session_state:
     st.session_state.disclaimer_shown = True
     show_disclaimer()
 
-# --- VOLLSTÄNDIGE PATCH NOTES HISTORIE ---
-with st.expander("📜 Projekt-Historie & Patch Notes (Stand: 18.01.2026)"):
+# --- PATCHNOTES ---
+with st.expander("📜 Projekt-Historie (v1.0 - v3.7)"):
     st.markdown("""
-    **v3.8 (Aktuell)**
-    * 📜 Vollständige Patch Notes Historie integriert.
-    * 🎤 Voice-Engine Stabilitäts-Fix.
-    
-    **v3.7**
-    * 🔧 **Fix:** Text-Expander (Ausklappen) für Zusammenfassung/Volltext wiederhergestellt.
-    * 🎤 **Voice-Boost:** Aggressive Suche nach Natural-Stimmen (Online).
-    
-    **v3.5 - v3.6**
-    * 🔔 **Disclaimer:** Pop-up Fenster beim Seitenstart hinzugefügt.
-    * 🏷️ **UI:** Credits 'Coded by Tobias Kaes' unter die Audio-Regler verschoben.
-    * 💅 **Design:** Buttons kompakter und moderner gestaltet.
-    
-    **v3.0 - v3.4**
-    * 🚫 **Skip TOC:** Inhaltsverzeichnisse werden automatisch ignoriert.
-    * 💎 **Branding:** Einführung 'Coded by Tobias Kaes'.
-    * 🎤 **Audio Engine 2.0:** Umstellung auf satzweise Verarbeitung für Live-Regler.
-    * 🛡️ **Halluzinations-Schutz:** KI-Prompts gegen erfundene Inhalte verschärft.
-    
-    **v1.0 - v2.1**
-    * 💎 **Abo-Support:** Optimierung für bezahlte API-Keys (Gemini 1.5 Pro).
-    * 🛠️ **Universal Fix:** Dynamische Modell-Suche gegen 404-Fehler.
-    * 🛡️ **Quota-Schutz:** Failover-System zur Vermeidung von 429-Fehlern.
+    **v3.7 (Aktuell)**
+    * 🔧 **Fix:** Text-Expander (Ausklappen) wiederhergestellt.
+    * 🎤 **Voice-Boost:** Verbesserte Erkennung von Premium-Stimmen (Natural/Online).
+    * 📝 **Clean-Up:** Optimierte Textreinigung für flüssigeres Vorlesen.
     """)
 
-st.title("🎙️PDF Reader & Summaries Pro")
+st.title("🎙️ PDF Vorleser Pro")
 
 # 3. API & Modell
 if "GEMINI_API_KEY" in st.secrets:
     genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
 else:
-    st.error("API Key fehlt in den Secrets!")
+    st.error("API Key fehlt!")
     st.stop()
 
 @st.cache_resource
@@ -90,12 +72,11 @@ def get_model():
 
 model = get_model()
 
-# 4. Sidebar mit Credits direkt unter den Reglern
+# 4. Sidebar
 st.sidebar.header("🎚️ Audio-Konsole")
 vol = st.sidebar.slider("Lautstärke", 0.0, 1.0, 1.0, 0.1)
 rate = st.sidebar.slider("Geschwindigkeit", 0.5, 2.0, 1.0, 0.1)
 st.sidebar.markdown(f"<div style='text-align: center; padding-top: 10px; font-weight: bold;'>Coded by Tobias Kaes</div>", unsafe_allow_html=True)
-st.sidebar.divider()
 
 # 5. Upload & Logik
 uploaded_file = st.file_uploader("PDF Dokument hochladen", type=["pdf"])
@@ -105,22 +86,23 @@ if uploaded_file and model:
     
     st.markdown("### 🛠️ Modus wählen")
     c1, c2 = st.columns(2)
-    with c1: btn_read = st.button("📖 Volltext")
+    with c1: btn_read = st.button("📖 Volltext (Skip Inhaltsverzeichnis)")
     with c2: btn_sum = st.button("📝 Zusammenfassung")
 
     if btn_read or btn_sum:
-        with st.spinner("KI verarbeitet das Dokument..."):
+        with st.spinner("KI verarbeitet..."):
             try:
                 pdf_bytes = uploaded_file.getvalue()
                 prompt = ("Extrahiere nur den flüssigen Haupttext ohne Inhaltsverzeichnis." if btn_read else "Fasse den Inhalt flüssig zusammen.")
                 response = model.generate_content([{"mime_type": "application/pdf", "data": pdf_bytes}, prompt])
+                # Reinigung von Markdown
                 st.session_state["text"] = re.sub(r'[*#_\\-]', '', response.text)
                 st.session_state["fid"] = file_id
                 st.session_state["mode"] = "Volltext" if btn_read else "Zusammenfassung"
             except Exception as e:
                 st.error(f"Fehler: {e}")
 
-    # WICHTIG: Expander zum Ausklappen des Textes
+    # TEXT WIEDER AUSKLAPPBAR MACHEN
     if "text" in st.session_state and st.session_state["fid"] == file_id:
         st.divider()
         with st.expander(f"📄 {st.session_state['mode']} anzeigen / ausklappen"):
@@ -131,7 +113,7 @@ if uploaded_file and model:
         
         cp, cs = st.columns(2)
         with cp:
-            if st.button("▶️ Start / Restart"):
+            if st.button("▶️ START / NEUSTART"):
                 js = f"""
                 <script>
                 (function() {{
@@ -146,6 +128,7 @@ if uploaded_file and model:
                                 const u = new SpeechSynthesisUtterance(sents[i]);
                                 u.lang = 'de-DE'; u.volume = {vol}; u.rate = {rate};
                                 
+                                // Aggressive Suche nach Natural-Stimmen
                                 let vs = synth.getVoices();
                                 let bestVoice = vs.find(v => v.lang.includes('de') && (v.name.includes('Natural') || v.name.includes('Online')))
                                                 || vs.find(v => v.lang.includes('de') && v.name.includes('Google'))
@@ -157,16 +140,13 @@ if uploaded_file and model:
                             }}
                         }}
                         speak();
-                    }}, 400); 
+                    }}, 400); // Etwas mehr Zeit für die Stimmen-Liste
                 }})();
                 </script>
                 """
                 st.components.v1.html(js, height=0)
         with cs:
-            if st.button("⏹️ Stop"):
+            if st.button("⏹️ STOPP"):
                 st.components.v1.html("<script>window.speechSynthesis.cancel();</script>", height=0)
 
-st.caption("v3.8 Pro | Coded by Tobias Kaes")
-
-
-
+st.caption("v3.7 Pro | Coded by Tobias Kaes")
