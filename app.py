@@ -2,45 +2,69 @@ import streamlit as st
 import google.generativeai as genai
 import re
 
-# 1. Seite & Design (Kontrast-Fix & Layout)
-st.set_page_config(page_title="PDF Reader Pro v3.3", page_icon="🎙️", layout="wide")
+# 1. Seite & Design
+st.set_page_config(page_title="PDF Reader Pro v3.4", page_icon="🎙️", layout="wide")
 
 st.markdown("""
     <style>
-    /* Buttons extrem gut lesbar machen */
     .stButton>button {
         width: 100%;
         border-radius: 12px;
         height: 4em;
-        background-color: #1E1E1E !important; /* Tiefschwarz */
-        color: #FFFFFF !important;             /* Reinweiß */
+        background-color: #1E1E1E !important; 
+        color: #FFFFFF !important;             
         font-size: 18px !important;
         font-weight: 800 !important;
-        border: 2px solid #FF4B4B !important;  /* Roter Rahmen für Kontrast */
+        border: 2px solid #FF4B4B !important;  
         box-shadow: 2px 2px 10px rgba(0,0,0,0.2);
     }
     .stButton>button:hover {
         background-color: #FF4B4B !important;
         color: white !important;
     }
+    /* Disclaimer Styling */
+    .disclaimer {
+        padding: 15px;
+        border-radius: 10px;
+        background-color: #fff3cd;
+        color: #856404;
+        border: 1px solid #ffeeba;
+        margin-bottom: 20px;
+        font-weight: bold;
+        text-align: center;
+    }
+    /* Footer Styling */
+    .footer {
+        position: fixed;
+        left: 0;
+        bottom: 0;
+        width: 100%;
+        background-color: #f0f2f6;
+        color: #31333F;
+        text-align: center;
+        padding: 10px;
+        font-size: 14px;
+        font-weight: bold;
+        border-top: 1px solid #e6e9ef;
+    }
     </style>
     """, unsafe_allow_html=True)
 
 # --- PATCH NOTES ---
-with st.expander("🚀 Patch Notes v3.3 - Smart Skip"):
+with st.expander("🚀 Patch Notes v3.4 - Final Touch"):
     st.markdown("""
-    * 🚫 **Skip TOC:** Das Inhaltsverzeichnis wird jetzt automatisch erkannt und übersprungen.
-    * 🎨 **High Contrast Buttons:** Schwarz-Rote Buttons für maximale Lesbarkeit.
-    * 🗣️ **Premium Audio:** Beste verfügbare Systemstimmen werden automatisch gewählt.
+    * 📢 **User Guidance:** Disclaimer für Audio-Einstellungen hinzugefügt.
+    * 🏷️ **Branding:** 'Coded by Tobias Kaes' integriert.
+    * 🚫 **Skip TOC:** Inhaltsverzeichnisse werden weiterhin ignoriert.
     """)
 
-st.title("🎙️PDF Reader & Summaries")
+st.title("🎙️ PDF Vorleser Pro")
 
 # 2. API Key Check
 if "GEMINI_API_KEY" in st.secrets:
     genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
 else:
-    st.error("⚠️ API Key fehlt! Bitte in den Streamlit Cloud Secrets hinterlegen.")
+    st.error("⚠️ API Key fehlt!")
     st.stop()
 
 # 3. Modell-Suche
@@ -60,6 +84,8 @@ model = get_model()
 st.sidebar.header("🎚️ Audio-Einstellungen")
 vol = st.sidebar.slider("Lautstärke", 0.0, 1.0, 1.0, 0.1)
 rate = st.sidebar.slider("Geschwindigkeit", 0.5, 2.0, 1.0, 0.1)
+st.sidebar.divider()
+st.sidebar.markdown("👨‍💻 **Developer:** Tobias Kaes")
 
 # 5. Upload & Verarbeitung
 uploaded_file = st.file_uploader("PDF Dokument hochladen", type=["pdf"])
@@ -67,47 +93,33 @@ uploaded_file = st.file_uploader("PDF Dokument hochladen", type=["pdf"])
 if uploaded_file and model:
     file_id = f"{uploaded_file.name}_{uploaded_file.size}"
     
-    st.markdown("### 1. Zusammenfassen oder Ganze PDF?")
+    st.markdown("### 1. Aktion wählen")
     c1, c2 = st.columns(2)
-    with c1: btn_read = st.button("📖 GANZE PDF LESEN")
+    with c1: btn_read = st.button("📖 PDF VOLLTEXT LESEN")
     with c2: btn_sum = st.button("📝 ZUSAMMENFASSUNG")
 
     if btn_read or btn_sum:
-        with st.spinner("KI filtert Inhaltsverzeichnis und bereitet Text vor..."):
+        with st.spinner("KI bereitet den Text vor..."):
             try:
                 pdf_bytes = uploaded_file.getvalue()
-                
-                if btn_read:
-                    # Der neue "Skip-TOC" Prompt
-                    prompt = """Extrahiere den flüssigen Haupttext des Dokuments auf Deutsch. 
-                    WICHTIG: Überspringe das Inhaltsverzeichnis, Kopfzeilen, Fußzeilen und Seitenzahlen komplett. 
-                    Lies direkt beim ersten echten Textkapitel los. Gib KEINE Metadaten oder Listen von Kapiteln aus."""
-                else:
-                    prompt = "Fasse den Kerninhalt des Dokuments flüssig auf Deutsch zusammen. Ignoriere das Inhaltsverzeichnis."
-                
+                prompt = ("Lies den deutschen Haupttext ohne Inhaltsverzeichnis und Metadaten vor." if btn_read else "Fasse das Dokument flüssig zusammen.")
                 response = model.generate_content([{"mime_type": "application/pdf", "data": pdf_bytes}, prompt])
-                
-                # Säuberung von Markdown
-                cleaned = re.sub(r'[*#_\\-]', '', response.text)
-                st.session_state["text"] = cleaned
+                st.session_state["text"] = re.sub(r'[*#_\\-]', '', response.text)
                 st.session_state["fid"] = file_id
             except Exception as e:
                 st.error(f"Fehler: {e}")
 
     if "text" in st.session_state and st.session_state["fid"] == file_id:
-        text_ready = st.session_state["text"]
+        # 6. Disclaimer & Audio
+        st.divider()
+        st.markdown('<div class="disclaimer">⚠️ HINWEIS: Bitte stelle Lautstärke und Geschwindigkeit in der Seitenleiste ein, BEVOR du die Wiedergabe startest. Nachträgliche Änderungen starten das Vorlesen von vorne.</div>', unsafe_allow_html=True)
         
-        with st.expander("Vorschau des gefilterten Textes"):
-            st.write(text_ready)
-
-        # 6. Audio Steuerung
         st.markdown("### 2. Wiedergabe")
-        # Zerlegung in Sätze
-        sentences = [s.strip() for s in re.split(r'(?<=[.!?]) +', text_ready) if len(s) > 3]
+        sentences = [s.strip() for s in re.split(r'(?<=[.!?]) +', st.session_state["text"]) if len(s) > 3]
         
         col_play, col_stop = st.columns(2)
         with col_play:
-            if st.button("▶️ START / UPDATE"):
+            if st.button("▶️ JETZT VORLESEN"):
                 js_code = f"""
                 <script>
                 (function() {{
@@ -115,23 +127,16 @@ if uploaded_file and model:
                     setTimeout(() => {{
                         const sentences = {sentences};
                         let i = 0;
-                        const synth = window.speechSynthesis;
-
                         function speakNext() {{
                             if (i < sentences.length) {{
                                 const utter = new SpeechSynthesisUtterance(sentences[i]);
                                 utter.lang = 'de-DE';
                                 utter.volume = {vol};
                                 utter.rate = {rate};
-                                
-                                const voices = synth.getVoices();
-                                const bestVoice = voices.find(v => v.lang.includes('de') && (v.name.includes('Natural') || v.name.includes('Online'))) 
-                                              || voices.find(v => v.lang.includes('de') && v.name.includes('Google'))
-                                              || voices.find(v => v.lang.startsWith('de'));
-                                
-                                if (bestVoice) utter.voice = bestVoice;
+                                const v = window.speechSynthesis.getVoices();
+                                utter.voice = v.find(v => v.lang.includes('de') && (v.name.includes('Natural') || v.name.includes('Online'))) || v.find(v => v.lang.startsWith('de'));
                                 utter.onend = () => {{ i++; speakNext(); }};
-                                synth.speak(utter);
+                                window.speechSynthesis.speak(utter);
                             }}
                         }}
                         speakNext();
@@ -145,6 +150,5 @@ if uploaded_file and model:
             if st.button("⏹️ STOPP"):
                 st.components.v1.html("<script>window.speechSynthesis.cancel();</script>", height=0)
 
-st.caption(f"v3.3 Pro | Aktiv: {model.model_name if model else 'Suche...'}")
-
-
+# 7. Footer & Branding
+st.markdown('<div class="footer">Coded by Tobias Kaes | Powered by Gemini 1.5 Pro</div>', unsafe_allow_html=True)
