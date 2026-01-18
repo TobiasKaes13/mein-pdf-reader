@@ -69,7 +69,7 @@ with st.expander("📜 Projekt-Historie & Patch Notes (Stand: 18.01.2026)"):
     * 🛡️ **Quota-Schutz:** Failover-System zur Vermeidung von 429-Fehlern.
     """)
 
-st.title("🎙️ PDF Vorleser Pro")
+st.title("🎙️PDF Reader & Summaries Pro")
 
 # 3. API & Modell
 if "GEMINI_API_KEY" in st.secrets:
@@ -105,7 +105,7 @@ if uploaded_file and model:
     
     st.markdown("### 🛠️ Modus wählen")
     c1, c2 = st.columns(2)
-    with c1: btn_read = st.button("📖 Volltext (Skip Inhaltsverzeichnis)")
+    with c1: btn_read = st.button("📖 Volltext")
     with c2: btn_sum = st.button("📝 Zusammenfassung")
 
     if btn_read or btn_sum:
@@ -167,3 +167,4 @@ if uploaded_file and model:
                 st.components.v1.html("<script>window.speechSynthesis.cancel();</script>", height=0)
 
 st.caption("v3.8 Pro | Coded by Tobias Kaes")
+
