@@ -2,93 +2,98 @@ import streamlit as st
 import google.generativeai as genai
 
 # 1. Seite konfigurieren
-st.set_page_config(page_title="KI PDF Reader", page_icon="📄", layout="centered")
+st.set_page_config(page_title="KI PDF Reader", page_icon="🎙️", layout="centered")
 
-st.title("📄 Dein KI PDF-Vorleser")
-st.markdown("Lade ein PDF hoch. Die KI fasst es zusammen und liest es ohne störende Zeichen vor.")
+st.title("🎙️ Intelligenter PDF-Vorleser")
+st.markdown("Liest kurze PDFs direkt vor und fasst lange Dokumente automatisch zusammen.")
 
-# 2. API Key aus den Streamlit Secrets laden
+# 2. API Key aus den Streamlit Secrets
 if "GEMINI_API_KEY" in st.secrets:
     genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
 else:
-    st.error("⚠️ API Key nicht gefunden! Bitte trage den 'GEMINI_API_KEY' in den Streamlit Secrets ein.")
+    st.error("⚠️ API Key fehlt in den Secrets!")
     st.stop()
 
-# 3. Modell finden (Sicherheits-Check für die Region)
+# 3. Modell-Setup
 try:
     available_models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
-    # Suche nach flash, ansonsten nimm das erste verfügbare Modell
     target_model = next((m for m in available_models if "1.5-flash" in m), available_models[0])
     model = genai.GenerativeModel(target_model)
 except Exception as e:
-    st.error(f"Fehler beim Laden des KI-Modells: {e}")
+    st.error(f"Modell-Fehler: {e}")
     st.stop()
 
 # 4. Datei-Upload
 uploaded_file = st.file_uploader("Wähle eine PDF-Datei aus", type=["pdf"])
 
 if uploaded_file:
-    with st.spinner("KI analysiert das Dokument..."):
+    with st.spinner("Analysiere Dokumentgröße..."):
         try:
-            # PDF Daten auslesen
             pdf_bytes = uploaded_file.getvalue()
             
-            # Anweisung an die KI
-            prompt = "Fasse dieses Dokument kurz und prägnant auf Deutsch zusammen. Nutze keine komplizierten Formatierungen, da der Text vorgelesen werden soll."
+            # Wir schicken eine kurze Vor-Anfrage, um die Länge zu prüfen
+            # (Oder wir nutzen die Dateigröße als Indikator)
+            file_size_kb = len(pdf_bytes) / 1024
             
+            # Entscheidungshilfe: Alles unter 500KB behandeln wir als "kurz"
+            # Das entspricht grob 10-15 Seiten Text.
+            if file_size_kb < 500:
+                mode = "Direktes Vorlesen"
+                prompt = "Gib den gesamten Text des Dokuments wortwörtlich auf Deutsch wieder. Keine Einleitung, keine Zusammenfassung."
+            else:
+                mode = "Zusammenfassung"
+                prompt = "Dieses Dokument ist sehr lang. Erstelle eine ausführliche Zusammenfassung auf Deutsch, die sich gut zum Vorlesen eignet."
+
+            st.info(f"Modus: **{mode}** (Dateigröße: {file_size_kb:.1f} KB)")
+
             # KI Antwort generieren
             response = model.generate_content([
                 {"mime_type": "application/pdf", "data": pdf_bytes},
                 prompt
             ])
             
-            text_result = response.text
+            final_text = response.text
             
-            # Ergebnis anzeigen (mit Sternchen für die Optik)
-            st.success("Analyse fertig!")
-            st.subheader("Zusammenfassung")
-            st.write(text_result)
+            # Anzeige
+            st.subheader(mode)
+            st.write(final_text)
 
-            # 5. Vorlese-Funktion (REINIGUNG DER STERNCHEN)
+            # 5. Vorlese-Funktion
             st.divider()
-            st.subheader("Sprachausgabe")
             
-            # Textreinigung für die Stimme: Entfernt **, *, # und _
-            clean_text = text_result.replace("**", "").replace("*", "").replace("#", "").replace("_", "")
-            # Text für JavaScript sicher machen (entfernt Zeilenumbrüche und einfache Anführungszeichen)
+            # Reinigung
+            clean_text = final_text.replace("**", "").replace("*", "").replace("#", "").replace("_", "")
             safe_text = clean_text.replace("'", "").replace('"', '').replace("\n", " ").replace("\r", "")
             
-            if st.button("🔊 Zusammenfassung laut vorlesen"):
-                js_code = f"""
-                <script>
-                function speak() {{
-                    window.speechSynthesis.cancel(); // Stoppt alles, was gerade läuft
-                    var msg = new SpeechSynthesisUtterance('{safe_text}');
-                    msg.lang = 'de-DE';
-                    msg.rate = 1.0; 
-
-                    var voices = window.speechSynthesis.getVoices();
-                    // Suche nach einer hochwertigen Online-Stimme
-                    var bestVoice = voices.find(v => v.lang.startsWith('de') && 
-                        (v.name.includes('Google') || v.name.includes('Online') || v.name.includes('Natural'))) 
-                        || voices.find(v => v.lang.startsWith('de'));
-
-                    if (bestVoice) msg.voice = bestVoice;
-                    window.speechSynthesis.speak(msg);
-                }}
-                
-                // Stimmen-Fix für Chrome/Edge
-                if (window.speechSynthesis.onvoiceschanged !== undefined) {{
-                    window.speechSynthesis.onvoiceschanged = speak;
-                }}
-                speak();
-                </script>
-                """
-                st.components.v1.html(js_code, height=0)
+            col1, col2 = st.columns(2)
+            with col1:
+                if st.button("🔊 Start"):
+                    js_code = f"""
+                    <script>
+                    function speak() {{
+                        window.speechSynthesis.cancel();
+                        var msg = new SpeechSynthesisUtterance('{safe_text}');
+                        msg.lang = 'de-DE';
+                        var voices = window.speechSynthesis.getVoices();
+                        var bestVoice = voices.find(v => v.lang.startsWith('de') && 
+                            (v.name.includes('Google') || v.name.includes('Online') || v.name.includes('Natural'))) 
+                            || voices.find(v => v.lang.startsWith('de'));
+                        if (bestVoice) msg.voice = bestVoice;
+                        window.speechSynthesis.speak(msg);
+                    }}
+                    if (window.speechSynthesis.onvoiceschanged !== undefined) {{
+                        window.speechSynthesis.onvoiceschanged = speak;
+                    }}
+                    speak();
+                    </script>
+                    """
+                    st.components.v1.html(js_code, height=0)
             
-            if st.button("⏹️ Ton stoppen"):
-                st.components.v1.html("<script>window.speechSynthesis.cancel();</script>", height=0)
+            with col2:
+                if st.button("⏹️ Stopp"):
+                    st.components.v1.html("<script>window.speechSynthesis.cancel();</script>", height=0)
 
         except Exception as e:
-            st.error(f"Fehler bei der Verarbeitung: {e}")
+            st.error(f"Fehler: {e}")
 
+st.caption("System: Automatische Umschaltung zwischen Volltext und Zusammenfassung aktiv.")
