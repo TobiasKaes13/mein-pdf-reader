@@ -3,14 +3,22 @@ import google.generativeai as genai
 import re
 
 # 1. Seite konfigurieren
-st.set_page_config(page_title="KI PDF Reader v1.5.1", page_icon="🎙️", layout="centered")
+st.set_page_config(page_title="KI PDF Reader v1.6", page_icon="🎙️", layout="centered")
 
-# --- PATCH NOTES ---
-with st.expander("🚀 Patch Notes v1.5.1"):
+# --- KOMPLETTE PATCH NOTES ---
+with st.expander("🚀 Patch Notes & Historie (v1.6)"):
     st.markdown("""
-    * 🔧 **Fix:** Automatische Modellsuche behebt den '404 Not Found' Fehler.
-    * ⚡ **Fast-Live Update:** Lautstärke/Speed werden pro Satz aktualisiert.
-    * 🛡️ **Quota-Schutz:** Vermeidet Fehler 429 durch Caching.
+    **Aktuell: Version 1.6**
+    * 🎤 **Premium Voice Fix:** Verbesserte Logik zur Auswahl natürlicher Stimmen im Browser.
+    * 🧠 **Smart-Analysis:** Filtert jetzt Binär-Müll und störende Zahlen automatisch aus.
+    * 📝 **Vollständige Historie:** Alle bisherigen Features in einer Übersicht.
+
+    **Ältere Versionen:**
+    * **v1.5.1:** Fix für '404 Model Not Found' durch automatische Modellsuche.
+    * **v1.5:** Satz-für-Satz Vorlesen für schnellere Updates von Speed & Volume.
+    * **v1.4:** Quota-Schutz (Caching) gegen den '429 Too Many Requests' Fehler.
+    * **v1.3:** Einführung der Lautstärkeregelung.
+    * **v1.2:** Einführung des Geschwindigkeitsreglers.
     """)
 
 st.title("🎙️ Intelligenter PDF-Vorleser")
@@ -22,18 +30,16 @@ else:
     st.error("⚠️ API Key fehlt in den Streamlit Cloud Secrets!")
     st.stop()
 
-# 3. Dynamisches Modell-Setup (DIESER TEIL BEHEBT DEN 404 FEHLER)
+# 3. Dynamisches Modell-Setup
 @st.cache_resource
 def get_best_model():
     try:
-        # Liste alle Modelle auf, die Content generieren können
         models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
-        # Suche bevorzugt nach Flash 1.5, sonst nimm das erste verfügbare
         flash_models = [m for m in models if "flash" in m]
         selected = flash_models[0] if flash_models else models[0]
         return genai.GenerativeModel(selected)
     except Exception as e:
-        st.error(f"Konnte kein Modell finden: {e}")
+        st.error(f"Modell-Suche fehlgeschlagen: {e}")
         return None
 
 model = get_best_model()
@@ -50,22 +56,31 @@ if uploaded_file and model:
     file_id = f"{uploaded_file.name}_{uploaded_file.size}"
     
     if "last_result" not in st.session_state or st.session_state.get("last_file_id") != file_id:
-        with st.spinner("KI analysiert PDF..."):
+        with st.spinner("KI bereitet Text vor..."):
             try:
                 pdf_bytes = uploaded_file.getvalue()
-                # Entscheidung Logik (Größe)
-                prompt = "Gib den Text wortwörtlich auf Deutsch wieder. Falls zu lang, fasse präzise zusammen."
+                file_size_kb = len(pdf_bytes) / 1024
+                
+                # Verschärfter Prompt gegen "Müll-Text" und für korrekte Zusammenfassung
+                if file_size_kb < 300: # Grenze etwas gesenkt für mehr Sicherheit
+                    prompt = "Lies den Text des PDFs aus. Gib NUR den relevanten, lesbaren Text auf Deutsch wieder. Ignoriere Binärzahlen, Wortwolken-Listen oder Metadaten-Müll."
+                    mode = "Direktes Vorlesen"
+                else:
+                    prompt = "Dieses PDF ist groß. Erstelle eine sehr ausführliche, gut strukturierte Zusammenfassung auf Deutsch. Ignoriere technische Daten-Fragmente."
+                    mode = "Zusammenfassung"
                 
                 response = model.generate_content([{"mime_type": "application/pdf", "data": pdf_bytes}, prompt])
                 
                 st.session_state["last_result"] = response.text
                 st.session_state["last_file_id"] = file_id
+                st.session_state["last_mode"] = mode
             except Exception as e:
-                st.error(f"Fehler: {e}")
+                st.error(f"KI-Fehler: {e}")
                 st.stop()
 
     final_text = st.session_state["last_result"]
-    with st.expander("Text anzeigen"):
+    st.info(f"Modus: **{st.session_state.get('last_mode')}**")
+    with st.expander("Textinhalt anzeigen"):
         st.write(final_text)
 
     # 6. Vorlese-Funktion
@@ -82,16 +97,29 @@ if uploaded_file and model:
             function speak() {{
                 window.speechSynthesis.cancel();
                 var sentences = {safe_sentences};
+                
+                // Wir erzwingen das Laden der Stimmen
+                var synth = window.speechSynthesis;
+                
                 sentences.forEach((text) => {{
                     var msg = new SpeechSynthesisUtterance(text);
                     msg.lang = 'de-DE';
                     msg.rate = {speech_speed};
                     msg.volume = {speech_volume};
-                    var voices = window.speechSynthesis.getVoices();
-                    var bestVoice = voices.find(v => v.lang.startsWith('de') && (v.name.includes('Google') || v.name.includes('Online'))) || voices.find(v => v.lang.startsWith('de'));
+                    
+                    var voices = synth.getVoices();
+                    // Priorität: 1. Microsoft Online/Natural, 2. Google, 3. Erste deutsche Stimme
+                    var bestVoice = voices.find(v => v.lang.includes('de') && (v.name.includes('Natural') || v.name.includes('Online')))
+                                   || voices.find(v => v.lang.includes('de') && v.name.includes('Google'))
+                                   || voices.find(v => v.lang.includes('de'));
+                    
                     if (bestVoice) msg.voice = bestVoice;
-                    window.speechSynthesis.speak(msg);
+                    synth.speak(msg);
                 }});
+            }}
+            // Fix für Browser, die Stimmen erst verzögert bereitstellen
+            if (speechSynthesis.onvoiceschanged !== undefined) {{
+                speechSynthesis.onvoiceschanged = speak;
             }}
             speak();
             </script>
@@ -102,4 +130,4 @@ if uploaded_file and model:
         if st.button("⏹️ Stopp"):
             st.components.v1.html("<script>window.speechSynthesis.cancel();</script>", height=0)
 
-st.caption("v1.5.1 | Auto-Model-Discovery aktiv")
+st.caption("v1.6 | Optimized Logic & Premium Voices")
