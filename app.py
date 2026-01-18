@@ -46,7 +46,7 @@ if "disclaimer_shown" not in st.session_state:
 with st.expander("📜 Patch Notes"):
     st.markdown("""
     **v3.8 (Aktuell)**
-    * 🎤 Voice-Engine Stabilitäts-Fix.
+    * 🎤 Voice Engine Stabilitäts-Fix.
     
     **v3.7**
     * 🔧 **Fix:** Text Expander (Ausklappen) für Zusammenfassung/Volltext wiederhergestellt.
@@ -64,7 +64,7 @@ with st.expander("📜 Patch Notes"):
     * 🛡️ **Halluzinations Schutz:** KI-Prompts gegen erfundene Inhalte verschärft.
     
     **v1.0 - v2.1**
-    * 💎 **Abo-Support:** Optimierung für bezahlte API-Keys.
+    * 💎 **Abo Support:** Optimierung für bezahlte API-Keys.
     * 🛠️ **Universal Fix:** Dynamische Modell-Suche gegen 404-Fehler.
     * 🛡️ **Quota Schutz:** Failover-System zur Vermeidung von 429-Fehlern.
     """)
@@ -168,6 +168,7 @@ if uploaded_file and model:
                 st.components.v1.html("<script>window.speechSynthesis.cancel();</script>", height=0)
 
 st.caption("v3.7 Pro | Coded by Tobias Kaes")
+
 
 
 
