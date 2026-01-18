@@ -3,9 +3,9 @@ import google.generativeai as genai
 import re
 
 # 1. Seite & Design
-st.set_page_config(page_title="PDF Reader Pro v3.5", page_icon="🎙️", layout="wide")
+st.set_page_config(page_title="PDF Reader Pro v3.6", page_icon="🎙️", layout="wide")
 
-# Styling für schönere, kompakte Buttons und das Layout
+# Styling für die Buttons und das Layout
 st.markdown("""
     <style>
     .stButton>button {
@@ -25,15 +25,16 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# 2. Disclaimer Pop-up (erscheint nur beim ersten Laden)
+# 2. Disclaimer Pop-up (erscheint beim ersten Laden)
 @st.dialog("⚠️ Wichtiger Hinweis")
 def show_disclaimer():
     st.write("""
+        ### Vor der Wiedergabe beachten:
         Bitte stelle **Lautstärke** und **Geschwindigkeit** in der Seitenleiste ein, 
         **bevor** du die Wiedergabe startest. 
         
-        Nachträgliche Änderungen während des Lesens führen dazu, dass die Datei 
-        beim nächsten Klick wieder von vorne begonnen wird.
+        **Warum?** Nachträgliche Änderungen während des Lesens führen dazu, dass die App 
+        die aktuelle Warteschlange löschen muss und beim nächsten Klick wieder von vorne beginnt.
     """)
     if st.button("Verstanden & Schließen"):
         st.rerun()
@@ -42,21 +43,39 @@ if "disclaimer_shown" not in st.session_state:
     st.session_state.disclaimer_shown = True
     show_disclaimer()
 
-# --- PATCH NOTES ---
-with st.expander("🚀 Patch Notes v3.5"):
+# --- GESAMTE PATCHNOTES HISTORIE ---
+with st.expander("📜 Projekt-Historie & Patchnotes (v1.0 - v3.6)"):
     st.markdown("""
-    * 🔔 **Disclaimer Pop-up:** Erscheint einmalig beim Start der Seite.
-    * 💅 **Button Design:** Kompakter, eleganter und besser aufeinander abgestimmt.
-    * 👨‍💻 **Credit:** 'Coded by Tobias Kaes' hinzugefügt.
+    **v3.6 (Aktuell)**
+    * 🏷️ UI-Anpassung: Credits unter Audio-Konsole verschoben.
+    * 📚 Historie: Alle Entwicklungsschritte dokumentiert.
+    
+    **v3.5**
+    * 🔔 Disclaimer Pop-up integriert.
+    * 💅 Button-Design modernisiert (kompakter).
+    
+    **v3.3 - v3.4**
+    * 🚫 **Smart Skip:** Automatische Erkennung und Überspringen von Inhaltsverzeichnissen.
+    * 💎 **Branding:** 'Coded by Tobias Kaes' hinzugefügt.
+    
+    **v3.0 - v3.2**
+    * 🎤 **Audio Engine 2.0:** Wechsel auf satzweise Verarbeitung für stabilere Regler-Steuerung.
+    * 🛡️ **Halluzinations-Schutz:** Strengere KI-Prompts gegen "erfundenen" Text.
+    * 🧹 **Deep Clean:** Filterung von Binärcode und PDF-Artefakten.
+    
+    **v1.0 - v2.1**
+    * 💎 **Premium-Support:** Umstellung auf Pay-as-you-go (Gemini 1.5 Pro).
+    * 🛠️ **Universal Fix:** Dynamische Modell-Suche gegen 404-Fehler.
+    * 🛡️ **Quota-Schutz:** Automatisches Failover zwischen Modellen.
     """)
 
 st.title("🎙️ PDF Vorleser Pro")
 
-# 3. API & Modell (wie gehabt)
+# 3. API & Modell-Setup
 if "GEMINI_API_KEY" in st.secrets:
     genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
 else:
-    st.error("API Key fehlt!")
+    st.error("API Key fehlt in den Secrets!")
     st.stop()
 
 @st.cache_resource
@@ -71,12 +90,13 @@ def get_model():
 
 model = get_model()
 
-# 4. Sidebar
+# 4. Sidebar mit Credits an der gewünschten Stelle
 st.sidebar.header("🎚️ Audio-Konsole")
 vol = st.sidebar.slider("Lautstärke", 0.0, 1.0, 1.0, 0.1)
 rate = st.sidebar.slider("Geschwindigkeit", 0.5, 2.0, 1.0, 0.1)
+st.sidebar.markdown(f"<div style='text-align: center; padding-top: 10px; font-weight: bold;'>Coded by Tobias Kaes</div>", unsafe_allow_html=True)
 st.sidebar.divider()
-st.sidebar.caption("Coded by Tobias Kaes")
+st.sidebar.info("Tipp: Nutze Microsoft Edge für die besten 'Natural' Stimmen.")
 
 # 5. Upload & Logik
 uploaded_file = st.file_uploader("PDF Dokument hochladen", type=["pdf"])
@@ -84,32 +104,32 @@ uploaded_file = st.file_uploader("PDF Dokument hochladen", type=["pdf"])
 if uploaded_file and model:
     file_id = f"{uploaded_file.name}_{uploaded_file.size}"
     
-    # Kompakteres Button-Layout
     st.markdown("### 🛠️ Modus wählen")
     c1, c2 = st.columns(2)
-    with c1: btn_read = st.button("📖 Volltext (Ohne Verzeichnis)")
+    with c1: btn_read = st.button("📖 Volltext (Skip Inhaltsverzeichnis)")
     with c2: btn_sum = st.button("📝 Zusammenfassung")
 
     if btn_read or btn_sum:
-        with st.spinner("KI verarbeitet..."):
+        with st.spinner("KI verarbeitet das Dokument..."):
             try:
                 pdf_bytes = uploaded_file.getvalue()
-                prompt = ("Extrahiere den Text ohne Inhaltsverzeichnis." if btn_read else "Fasse flüssig zusammen.")
+                prompt = ("Extrahiere den flüssigen Haupttext. Überspringe Inhaltsverzeichnis und Metadaten." if btn_read else "Fasse den Inhalt flüssig auf Deutsch zusammen.")
                 response = model.generate_content([{"mime_type": "application/pdf", "data": pdf_bytes}, prompt])
                 st.session_state["text"] = re.sub(r'[*#_\\-]', '', response.text)
                 st.session_state["fid"] = file_id
             except Exception as e:
-                st.error(f"Fehler: {e}")
+                st.error(f"Fehler bei der KI-Verarbeitung: {e}")
 
     if "text" in st.session_state and st.session_state["fid"] == file_id:
         st.divider()
         st.markdown("### 🔊 Wiedergabe")
         
+        # Text in Sätze zerlegen
         sentences = [s.strip() for s in re.split(r'(?<=[.!?]) +', st.session_state["text"]) if len(s) > 3]
         
         cp, cs = st.columns(2)
         with cp:
-            if st.button("▶️ START"):
+            if st.button("▶️ START / NEUSTART"):
                 js = f"""
                 <script>
                 (function() {{
@@ -137,4 +157,5 @@ if uploaded_file and model:
             if st.button("⏹️ STOPP"):
                 st.components.v1.html("<script>window.speechSynthesis.cancel();</script>", height=0)
 
-st.caption("Coded by Tobias Kaes")
+# 6. Kleiner Footer
+st.caption("v3.6 Pro | Coded by Tobias Kaes")
