@@ -1,24 +1,19 @@
 import streamlit as st
 import google.generativeai as genai
 import re
+import time
 
 # 1. Seite konfigurieren
-st.set_page_config(page_title="KI PDF Reader v1.6", page_icon="🎙️", layout="centered")
+st.set_page_config(page_title="KI PDF Reader v1.7", page_icon="🎙️", layout="centered")
 
 # --- KOMPLETTE PATCH NOTES ---
-with st.expander("🚀 Patch Notes & Historie (v1.6)"):
+with st.expander("🚀 Patch Notes & Historie (v1.7)"):
     st.markdown("""
-    **Aktuell: Version 1.6**
-    * 🎤 **Premium Voice Fix:** Verbesserte Logik zur Auswahl natürlicher Stimmen im Browser.
-    * 🧠 **Smart-Analysis:** Filtert jetzt Binär-Müll und störende Zahlen automatisch aus.
-    * 📝 **Vollständige Historie:** Alle bisherigen Features in einer Übersicht.
-
-    **Ältere Versionen:**
-    * **v1.5.1:** Fix für '404 Model Not Found' durch automatische Modellsuche.
-    * **v1.5:** Satz-für-Satz Vorlesen für schnellere Updates von Speed & Volume.
-    * **v1.4:** Quota-Schutz (Caching) gegen den '429 Too Many Requests' Fehler.
-    * **v1.3:** Einführung der Lautstärkeregelung.
-    * **v1.2:** Einführung des Geschwindigkeitsreglers.
+    **Aktuell: Version 1.7**
+    * 🔄 **Modell-Wechsel:** Nutzt jetzt primär `gemini-1.5-flash`, um das strenge 20-Anfragen-Limit von v2.5 zu umgehen.
+    * ⏳ **Limit-Anzeige:** Verbesserte Fehlermeldungen bei Quota-Überschreitung.
+    * 🎤 **Stimmen-Upgrade:** Optimierte Suche nach Microsoft & Google Premium-Stimmen.
+    * 🧠 **Müll-Filter:** Unterdrückt Binärzahlen und technische Fragmente im PDF.
     """)
 
 st.title("🎙️ Intelligenter PDF-Vorleser")
@@ -30,19 +25,22 @@ else:
     st.error("⚠️ API Key fehlt in den Streamlit Cloud Secrets!")
     st.stop()
 
-# 3. Dynamisches Modell-Setup
+# 3. Stabiles Modell-Setup
 @st.cache_resource
-def get_best_model():
+def get_stable_model():
     try:
-        models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
-        flash_models = [m for m in models if "flash" in m]
-        selected = flash_models[0] if flash_models else models[0]
-        return genai.GenerativeModel(selected)
+        # Wir versuchen gezielt 1.5-flash zu finden, da das Tageslimit dort viel höher ist
+        models = [m.name for m in genai.list_models()]
+        if 'models/gemini-1.5-flash' in models:
+            return genai.GenerativeModel('gemini-1.5-flash')
+        elif 'models/gemini-1.5-pro' in models:
+            return genai.GenerativeModel('gemini-1.5-pro')
+        return genai.GenerativeModel('gemini-pro')
     except Exception as e:
         st.error(f"Modell-Suche fehlgeschlagen: {e}")
         return None
 
-model = get_best_model()
+model = get_stable_model()
 
 # 4. Einstellungen in der Seitenleiste
 st.sidebar.header("Audio-Einstellungen")
@@ -61,12 +59,12 @@ if uploaded_file and model:
                 pdf_bytes = uploaded_file.getvalue()
                 file_size_kb = len(pdf_bytes) / 1024
                 
-                # Verschärfter Prompt gegen "Müll-Text" und für korrekte Zusammenfassung
-                if file_size_kb < 300: # Grenze etwas gesenkt für mehr Sicherheit
-                    prompt = "Lies den Text des PDFs aus. Gib NUR den relevanten, lesbaren Text auf Deutsch wieder. Ignoriere Binärzahlen, Wortwolken-Listen oder Metadaten-Müll."
+                # Prompt-Logik für sauberen Text
+                if file_size_kb < 300:
+                    prompt = "Lies den Text des PDFs aus. Gib NUR den lesbaren Haupttext auf Deutsch wieder. Ignoriere Binärzahlen, Seitenzahlen-Header und unleserliche Zeichen."
                     mode = "Direktes Vorlesen"
                 else:
-                    prompt = "Dieses PDF ist groß. Erstelle eine sehr ausführliche, gut strukturierte Zusammenfassung auf Deutsch. Ignoriere technische Daten-Fragmente."
+                    prompt = "Fasse dieses Dokument ausführlich auf Deutsch zusammen. Ignoriere dabei technische Tabellen oder Daten-Müll."
                     mode = "Zusammenfassung"
                 
                 response = model.generate_content([{"mime_type": "application/pdf", "data": pdf_bytes}, prompt])
@@ -75,7 +73,10 @@ if uploaded_file and model:
                 st.session_state["last_file_id"] = file_id
                 st.session_state["last_mode"] = mode
             except Exception as e:
-                st.error(f"KI-Fehler: {e}")
+                if "429" in str(e):
+                    st.error("🛑 Tageslimit erreicht! Google erlaubt nur wenige Anfragen pro Tag für dieses Modell. Bitte versuche es in einer Stunde oder morgen wieder.")
+                else:
+                    st.error(f"KI-Fehler: {e}")
                 st.stop()
 
     final_text = st.session_state["last_result"]
@@ -97,8 +98,6 @@ if uploaded_file and model:
             function speak() {{
                 window.speechSynthesis.cancel();
                 var sentences = {safe_sentences};
-                
-                // Wir erzwingen das Laden der Stimmen
                 var synth = window.speechSynthesis;
                 
                 sentences.forEach((text) => {{
@@ -108,7 +107,6 @@ if uploaded_file and model:
                     msg.volume = {speech_volume};
                     
                     var voices = synth.getVoices();
-                    // Priorität: 1. Microsoft Online/Natural, 2. Google, 3. Erste deutsche Stimme
                     var bestVoice = voices.find(v => v.lang.includes('de') && (v.name.includes('Natural') || v.name.includes('Online')))
                                    || voices.find(v => v.lang.includes('de') && v.name.includes('Google'))
                                    || voices.find(v => v.lang.includes('de'));
@@ -117,7 +115,6 @@ if uploaded_file and model:
                     synth.speak(msg);
                 }});
             }}
-            // Fix für Browser, die Stimmen erst verzögert bereitstellen
             if (speechSynthesis.onvoiceschanged !== undefined) {{
                 speechSynthesis.onvoiceschanged = speak;
             }}
@@ -130,4 +127,4 @@ if uploaded_file and model:
         if st.button("⏹️ Stopp"):
             st.components.v1.html("<script>window.speechSynthesis.cancel();</script>", height=0)
 
-st.caption("v1.6 | Optimized Logic & Premium Voices")
+st.caption("v1.7 | Stable Model Policy")
