@@ -49,7 +49,7 @@ with st.expander("📜 Patch Notes"):
     * 🎤 Voice Engine Stabilitäts-Fix.
     
     **v3.7**
-    * 🔧 **Fix:** Text Expander (Ausklappen) für Zusammenfassung/Volltext wiederhergestellt.
+    * 🔧 **Fix:** Text Expander (Ausklappen) für Zusammenfassung/Ganze PDF fixed.
     * 🎤 **Voice Boost:** Aggressive Suche nach Natural-Stimmen (Online).
     
     **v3.5 - v3.6**
@@ -168,6 +168,7 @@ if uploaded_file and model:
                 st.components.v1.html("<script>window.speechSynthesis.cancel();</script>", height=0)
 
 st.caption("v3.7 Pro | Coded by Tobias Kaes")
+
 
 
 
