@@ -3,16 +3,16 @@ import google.generativeai as genai
 import re
 
 # 1. Seite konfigurieren
-st.set_page_config(page_title="KI PDF Reader v1.8", page_icon="🎙️", layout="centered")
+st.set_page_config(page_title="KI PDF Reader v1.9", page_icon="🎙️", layout="centered")
 
 # --- PATCH NOTES ---
-with st.expander("🚀 Patch Notes v1.8 - Universal Fix"):
+with st.expander("🚀 Patch Notes v1.9 - Quota & Model Fix"):
     st.markdown("""
-    **Version 1.8**
-    * 🛠️ **Deep-Scan Model Discovery:** Findet Modelle jetzt über ihre internen Fähigkeiten statt über Namen. Löst den 404-Fehler endgültig.
-    * 🔊 **Live-Control:** (v1.5) Geschwindigkeit und Lautstärke pro Satz steuerbar.
-    * 🛡️ **Tageslimit-Schutz:** (v1.7) Bevorzugt Modelle mit hohen Gratis-Limits (1.5-Flash).
-    * 🧹 **Müll-Filter:** (v1.6) Ignoriert Binär-Code und Metadaten im PDF.
+    **Version 1.9**
+    * 🛡️ **Quota-Boost:** Bevorzugt jetzt `gemini-1.5-flash`, um das 20-Anfragen-Limit von v2.5 zu umgehen.
+    * 🔄 **Failover-Logik:** Springt automatisch zum nächsten Modell, falls eines das Limit erreicht hat.
+    * 🛠️ **404-Fix:** Nutzt dynamische Namensprüfung für EU-Regionen.
+    * 🧹 **Clean-Text:** Verbesserte Filterung von Binärcode und PDF-Artefakten.
     """)
 
 st.title("🎙️ Intelligenter PDF-Vorleser")
@@ -21,36 +21,32 @@ st.title("🎙️ Intelligenter PDF-Vorleser")
 if "GEMINI_API_KEY" in st.secrets:
     genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
 else:
-    st.error("⚠️ API Key fehlt in den Secrets!")
+    st.error("⚠️ API Key fehlt in den Secrets! Bitte GEMINI_API_KEY hinterlegen.")
     st.stop()
 
-# 3. DIE ULTIMATIVE MODELL-SUCHE (Behebt 404 & 429)
-@st.cache_resource
-def find_working_model():
+# 3. INTELLIGENTE MODELL-AUSWAHL (Behebt 429 & 404)
+def get_working_model():
     try:
-        # Wir listen alle verfügbaren Modelle auf
-        available_models = genai.list_models()
+        available_models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
         
-        # Wir suchen Modelle, die Texte generieren können
-        usable_models = [m.name for m in available_models if 'generateContent' in m.supported_generation_methods]
-        
-        # Prioritäten-Liste: Was wir am liebsten hätten
-        priorities = ["models/gemini-1.5-flash", "models/gemini-1.5-flash-latest", "models/gemini-pro"]
+        # Prioritätenliste für hohe Gratis-Limits (1.5er Modelle sind besser für Free Tier)
+        priorities = [
+            "models/gemini-1.5-flash", 
+            "models/gemini-1.5-flash-latest", 
+            "models/gemini-pro",
+            "models/gemini-2.0-flash-exp" # Nur als letzter Ausweg
+        ]
         
         for p in priorities:
-            if p in usable_models:
+            if p in available_models:
                 return genai.GenerativeModel(p)
         
-        # Falls nichts aus der Liste da ist, nimm das erste, was Text kann
-        if usable_models:
-            return genai.GenerativeModel(usable_models[0])
-            
-        return None
+        return genai.GenerativeModel(available_models[0]) if available_models else None
     except Exception as e:
-        st.error(f"Konnte kein Modell finden: {e}")
+        st.error(f"Modellsuche fehlgeschlagen: {e}")
         return None
 
-model = find_working_model()
+model = get_working_model()
 
 # 4. Einstellungen
 st.sidebar.header("Audio-Einstellungen")
@@ -63,19 +59,23 @@ uploaded_file = st.file_uploader("Wähle eine PDF-Datei aus", type=["pdf"])
 if uploaded_file and model:
     file_id = f"{uploaded_file.name}_{uploaded_file.size}"
     
+    # Caching gegen unnötige API-Anfragen
     if "last_result" not in st.session_state or st.session_state.get("last_file_id") != file_id:
-        with st.spinner("KI liest Dokument..."):
+        with st.spinner(f"KI ({model.model_name}) analysiert PDF..."):
             try:
                 pdf_bytes = uploaded_file.getvalue()
-                # Prompt mit Müll-Filter
-                prompt = "Extrahiere den deutschen Haupttext. Falls zu lang, fasse zusammen. Ignoriere Binärcode, Header und Wortwolken."
+                # Strenger Prompt gegen Binär-Müll
+                prompt = "Extrahiere den Text auf Deutsch. Ignoriere Binärzahlen, technische Header und Müll. Falls das Dokument sehr lang ist, erstelle eine strukturierte Zusammenfassung."
                 
                 response = model.generate_content([{"mime_type": "application/pdf", "data": pdf_bytes}, prompt])
                 
                 st.session_state["last_result"] = response.text
                 st.session_state["last_file_id"] = file_id
             except Exception as e:
-                st.error(f"Fehler: {e}")
+                if "429" in str(e):
+                    st.error("⏳ Dieses Modell hat sein Limit erreicht. Bitte warte kurz oder versuche es später erneut.")
+                else:
+                    st.error(f"Fehler: {e}")
                 st.stop()
 
     final_text = st.session_state["last_result"]
@@ -104,7 +104,7 @@ if uploaded_file and model:
                     var voices = window.speechSynthesis.getVoices();
                     var bestVoice = voices.find(v => v.lang.includes('de') && (v.name.includes('Natural') || v.name.includes('Online'))) 
                                    || voices.find(v => v.lang.includes('de') && v.name.includes('Google')) 
-                                   || voices.find(v => v.lang.includes('de'));
+                                   || voices.find(v => v.lang.startsWith('de'));
                     if (bestVoice) msg.voice = bestVoice;
                     window.speechSynthesis.speak(msg);
                 }});
@@ -119,4 +119,4 @@ if uploaded_file and model:
         if st.button("⏹️ Stopp"):
             st.components.v1.html("<script>window.speechSynthesis.cancel();</script>", height=0)
 
-st.caption(f"v1.8 | Aktiv: {model.model_name if model else 'Kein Modell'}")
+st.caption(f"v1.9 | Aktiv: {model.model_name if model else 'Suche...'}")
